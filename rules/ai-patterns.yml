@@ -1,0 +1,44 @@
+# NOTE: superseded.
+#
+# This file was an early Semgrep-style ruleset sketch. The actual v1
+# implementation uses a hand-rolled AST-based rule engine for Python and
+# regex-based rules for JS/TS instead of Semgrep -- see
+# slopguard/static_scan.py for the real, implemented, and tested ruleset
+# (10 rule types), and ARCHITECTURE.md for why Semgrep was skipped.
+#
+# Kept here only as a historical reference for what a Semgrep migration
+# would look like if the ruleset grows large enough to need it (see
+# ARCHITECTURE.md's static-scan section for that tradeoff).
+
+rules:
+  - id: hardcoded-secret
+    status: implemented-as-ast-rule
+    see: slopguard/static_scan.py::_scan_python (hardcoded-secret)
+
+  - id: eval-on-input
+    status: implemented-as-ast-rule
+    see: slopguard/static_scan.py::_scan_python (eval-on-input)
+
+  - id: sql-string-concat
+    status: implemented-as-ast-rule
+    see: slopguard/static_scan.py::_scan_python (sql-string-concat)
+
+  - id: cors-allow-all
+    status: implemented-as-ast-rule
+    see: slopguard/static_scan.py::_scan_python (cors-allow-all)
+
+  - id: missing-auth-decorator-hint
+    status: implemented-as-ast-rule
+    see: slopguard/static_scan.py::_scan_python (missing-auth-decorator)
+
+  # Added beyond the original sketch, after Phase 1 expansion:
+  - id: weak-crypto
+    status: implemented-as-ast-rule
+  - id: unsafe-yaml-load
+    status: implemented-as-ast-rule
+  - id: debug-mode-enabled
+    status: implemented-as-ast-rule
+  - id: path-traversal
+    status: implemented-as-ast-rule
+  - id: pickle-loads
+    status: implemented-as-ast-rule
