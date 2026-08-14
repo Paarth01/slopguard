@@ -1,0 +1,3 @@
+import requests
+import fastapi
+import this_package_definitely_does_not_exist_zzz_12345
