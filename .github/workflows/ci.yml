@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install package + dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check slopguard action
+
+      - name: Format check (black)
+        run: black --check slopguard action
+
+      - name: Unit tests (no network)
+        run: pytest -m "not integration"
+
+      - name: Integration tests (real PyPI/npm lookups)
+        run: pytest -m integration
