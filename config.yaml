@@ -1,0 +1,27 @@
+# SlopGuard runtime configuration
+# Claude Code: read this at startup instead of hardcoding these values.
+
+severity:
+  fail_on: high          # critical | high | medium | low — CI exits non-zero at/above this
+
+static_scan:
+  ruleset: rules/ai-patterns.yml
+  timeout_seconds: 60
+
+slop_check:
+  registries:
+    - pypi
+    - npm
+  cache_file: .slopguard_cache.json
+  new_package_threshold_days: 90
+  low_downloads_threshold: 1000
+  request_timeout_seconds: 5
+
+judge:
+  approach: local_heuristic   # fully local, no API key -- see slopguard/judge.py
+
+report:
+  output_dir: out/
+  formats:
+    - html
+    - json
