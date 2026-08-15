@@ -133,8 +133,19 @@ def extract_python_imports(content: str) -> list[str]:
 
 
 _JS_IMPORT_RE = re.compile(
-    r"""(?:import\s+(?:[\w*{}\s,]+\s+from\s+)?|require\()\s*['"]([^./][^'"]*)['"]"""
+    r"""(?:import\s*\(|import\s+(?:type\s+)?(?:[\w*{}\s,]+\s+from\s+)?|export\s+(?:type\s+)?(?:[\w*{}\s,]+\s+from\s+|\*\s+from\s+)|require\()\s*['"]([^./][^'"]*)['"]"""
 )
+
+# Node.js built-in modules -- these resolve without npm and should never
+# be looked up against the npm registry (a lookup would 404 and falsely
+# read as a "hallucinated package").
+_NODE_BUILTIN_SKIP = {
+    "fs", "path", "http", "https", "crypto", "os", "util", "events", "stream",
+    "child_process", "buffer", "url", "querystring", "assert", "net", "dns",
+    "zlib", "tls", "readline", "cluster", "worker_threads", "process", "vm",
+    "module", "timers", "string_decoder", "punycode", "v8", "perf_hooks",
+    "async_hooks", "inspector", "trace_events", "diagnostics_channel",
+}
 
 
 def extract_js_imports(content: str) -> list[str]:
@@ -142,12 +153,17 @@ def extract_js_imports(content: str) -> list[str]:
     names: set[str] = set()
     for match in _JS_IMPORT_RE.finditer(content):
         raw = match.group(1)
+        # Modern Node builtins are often imported with an explicit
+        # "node:" scheme (e.g. `import fs from "node:fs"`) -- strip it so
+        # the builtin skip-list check below still applies.
+        if raw.startswith("node:"):
+            raw = raw[len("node:") :]
         if raw.startswith("@"):
             parts = raw.split("/")
             names.add("/".join(parts[:2]))
         else:
             names.add(raw.split("/")[0])
-    return sorted(names)
+    return sorted(n for n in names if n and n not in _NODE_BUILTIN_SKIP)
 
 
 def check_pypi_package(name: str, timeout: float = 5.0) -> tuple[bool, Optional[int]]:
