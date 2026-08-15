@@ -235,9 +235,27 @@ def _finding_for(file_path: str, package: str, ecosystem: str, exists: bool, age
     return None
 
 
+def _local_module_names(files: list[FileToScan]) -> set[str]:
+    """
+    Names that appear as a directory or top-level module *within the
+    scanned target itself*. A plain `import blueprintapp` that resolves
+    to a local test-fixture package (common in test suites that
+    manipulate sys.path -- found in Flask's own test suite) looks
+    identical to a hallucinated PyPI package from an import name alone --
+    cross-referencing against the target's own file tree lets us tell
+    the difference without a network call.
+    """
+    names: set[str] = set()
+    for f in files:
+        for part in Path(f.path).parts:
+            names.add(part[:-3] if part.endswith(".py") else part)
+    return names
+
+
 def check_files_for_hallucinations(files: list[FileToScan]) -> list[Finding]:
     cache = _load_cache()
     findings: list[Finding] = []
+    local_names = _local_module_names(files)
 
     for file in files:
         if file.language == "python":
@@ -248,6 +266,9 @@ def check_files_for_hallucinations(files: list[FileToScan]) -> list[Finding]:
             packages = []
 
         for package, ecosystem in packages:
+            if package in local_names:
+                continue  # first-party module local to this codebase, not a registry lookup candidate
+
             lookup_name = _IMPORT_NAME_TO_PYPI_NAME.get(package, package) if ecosystem == "pypi" else package
             cache_key = f"{ecosystem}:{lookup_name}"
             if cache_key in cache:
