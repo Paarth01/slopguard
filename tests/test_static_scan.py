@@ -57,3 +57,50 @@ def test_js_eval_detected():
     js = FileToScan(path="app.js", content="eval(userInput);", language="javascript")
     findings = scan_file(js)
     assert any(f.rule_id == "eval-on-input" for f in findings)
+
+
+def test_weak_crypto_md5_detected():
+    findings = scan_file(_load("weak_crypto_example.py"))
+    assert any(f.rule_id == "weak-crypto" for f in findings)
+
+
+def test_unsafe_yaml_load_detected():
+    findings = scan_file(_load("yaml_example.py"))
+    assert any(f.rule_id == "unsafe-yaml-load" for f in findings)
+
+
+def test_safe_yaml_load_not_flagged():
+    safe = FileToScan(
+        path="config.py",
+        content="import yaml\ndata = yaml.load(raw, Loader=yaml.SafeLoader)\n",
+        language="python",
+    )
+    findings = scan_file(safe)
+    assert not any(f.rule_id == "unsafe-yaml-load" for f in findings)
+
+
+def test_debug_mode_detected():
+    findings = scan_file(_load("debug_example.py"))
+    assert any(f.rule_id == "debug-mode-enabled" for f in findings)
+
+
+def test_path_traversal_detected():
+    findings = scan_file(_load("path_traversal_example.py"))
+    assert any(f.rule_id == "path-traversal" for f in findings)
+
+
+def test_missing_auth_decorator_flags_unprotected_route():
+    findings = scan_file(_load("missing_auth_example.py"))
+    auth_findings = [f for f in findings if f.rule_id == "missing-auth-decorator"]
+    assert any("list_users" in f.title for f in auth_findings)
+    assert not any("get_profile" in f.title for f in auth_findings)
+
+
+def test_js_weak_crypto_detected():
+    js = FileToScan(
+        path="hash.js",
+        content='const hash = crypto.createHash("md5").update(data).digest("hex");',
+        language="javascript",
+    )
+    findings = scan_file(js)
+    assert any(f.rule_id == "weak-crypto" for f in findings)

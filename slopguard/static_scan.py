@@ -151,15 +151,175 @@ def _scan_python(file: FileToScan) -> list[Finding]:
                             )
                         )
 
+            # Rule: weak-crypto -- md5/sha1 used for hashing (fine for checksums,
+            # weak for passwords/tokens; flagged at medium confidence since we
+            # can't always tell the intent from the call site alone)
+            if func_name in ("hashlib.md5", "hashlib.sha1"):
+                algo = func_name.split(".")[1]
+                findings.append(
+                    Finding(
+                        id=f"static-{file.path}-{node.lineno}-weakcrypto",
+                        source="static",
+                        severity=Severity.MEDIUM,
+                        file=file.path,
+                        line=node.lineno,
+                        title=f"Weak hash algorithm ({algo})",
+                        explanation=(
+                            f"{algo.upper()} is broken for security purposes (password hashing, "
+                            "signing, tokens). Fine for non-security checksums; use bcrypt/"
+                            "argon2/scrypt for passwords or sha256+ for integrity checks."
+                        ),
+                        confidence=0.5,
+                        rule_id="weak-crypto",
+                    )
+                )
+
+            # Rule: unsafe-yaml-load -- yaml.load() without a safe Loader can
+            # execute arbitrary Python objects during deserialization.
+            if func_name == "yaml.load":
+                loader_kw = next((kw for kw in node.keywords if kw.arg == "Loader"), None)
+                is_safe = False
+                if loader_kw is not None:
+                    loader_name = _attribute_chain(loader_kw.value)
+                    if "SafeLoader" in loader_name or "safe_load" in loader_name:
+                        is_safe = True
+                if not is_safe:
+                    findings.append(
+                        Finding(
+                            id=f"static-{file.path}-{node.lineno}-yaml",
+                            source="static",
+                            severity=Severity.HIGH,
+                            file=file.path,
+                            line=node.lineno,
+                            title="Unsafe YAML deserialization",
+                            explanation=(
+                                "yaml.load() without Loader=yaml.SafeLoader can construct "
+                                "arbitrary Python objects from the input, which can lead to "
+                                "code execution. Use yaml.safe_load() instead."
+                            ),
+                            confidence=0.65,
+                            rule_id="unsafe-yaml-load",
+                        )
+                    )
+
+            # Rule: debug-mode-enabled -- app.run(debug=True) should never ship
+            if func_name.endswith(".run") or func_name == "run":
+                for kw in node.keywords:
+                    if (
+                        kw.arg == "debug"
+                        and isinstance(kw.value, ast.Constant)
+                        and kw.value.value is True
+                    ):
+                        findings.append(
+                            Finding(
+                                id=f"static-{file.path}-{node.lineno}-debug",
+                                source="static",
+                                severity=Severity.MEDIUM,
+                                file=file.path,
+                                line=node.lineno,
+                                title="Debug mode enabled",
+                                explanation=(
+                                    "debug=True exposes an interactive debugger and stack traces "
+                                    "to anyone who can trigger an error -- fine for local dev, "
+                                    "must be off in production."
+                                ),
+                                confidence=0.8,
+                                rule_id="debug-mode-enabled",
+                            )
+                        )
+
+            # Rule: path-traversal -- open()/os.path.join() called with a
+            # dynamically-built path (f-string or concatenation), which can
+            # allow '../' traversal if the input isn't validated.
+            if func_name in ("open", "os.path.join") and node.args:
+                arg = node.args[0] if func_name == "open" else node.args[-1]
+                if isinstance(arg, (ast.JoinedStr,)) or (
+                    isinstance(arg, ast.BinOp) and isinstance(arg.op, ast.Add)
+                ):
+                    findings.append(
+                        Finding(
+                            id=f"static-{file.path}-{node.lineno}-pathtraversal",
+                            source="static",
+                            severity=Severity.MEDIUM,
+                            file=file.path,
+                            line=node.lineno,
+                            title="Possible path traversal",
+                            explanation=(
+                                f"{func_name}() is called with a dynamically-built path -- if "
+                                "any part of it comes from user input without validation, "
+                                "'../' sequences could escape the intended directory."
+                            ),
+                            confidence=0.4,
+                            rule_id="path-traversal",
+                        )
+                    )
+
+        # Rule: missing-auth-decorator -- a route handler (@app.get/post/etc)
+        # with no auth-suggestive decorator and no Depends()-style default
+        # argument. Deliberately INFO severity and low confidence: auth may
+        # well be enforced via middleware, which this heuristic can't see.
+        if isinstance(node, ast.FunctionDef):
+            route_decorator = _find_route_decorator(node)
+            if route_decorator is not None and not _looks_auth_protected(node):
+                findings.append(
+                    Finding(
+                        id=f"static-{file.path}-{node.lineno}-authcheck",
+                        source="static",
+                        severity=Severity.INFO,
+                        file=file.path,
+                        line=node.lineno,
+                        title=f"Route handler '{node.name}' has no visible auth check",
+                        explanation=(
+                            "No auth-related decorator or Depends()-style dependency was found "
+                            "on this route. May be a false positive if auth is enforced via "
+                            "middleware -- worth a quick manual check."
+                        ),
+                        confidence=0.3,
+                        rule_id="missing-auth-decorator",
+                    )
+                )
+
     return findings
 
 
+_ROUTE_METHODS = {"get", "post", "put", "delete", "patch", "route"}
+_AUTH_HINTS = re.compile(r"(?i)(auth|login|permission|current_user|require|protected)")
+
+
+def _find_route_decorator(node: ast.FunctionDef) -> ast.expr | None:
+    for dec in node.decorator_list:
+        call = dec if isinstance(dec, ast.Call) else None
+        func = call.func if call else dec
+        name = _call_name(call) if call else (func.attr if isinstance(func, ast.Attribute) else "")
+        if name and name.split(".")[-1] in _ROUTE_METHODS:
+            return dec
+    return None
+
+
+def _looks_auth_protected(node: ast.FunctionDef) -> bool:
+    # Any decorator mentioning auth/login/permission/etc.
+    for dec in node.decorator_list:
+        src = ast.dump(dec)
+        if _AUTH_HINTS.search(src):
+            return True
+    # Any default argument value that looks like FastAPI's Depends(get_current_user)
+    for default in node.args.defaults:
+        if isinstance(default, ast.Call) and _AUTH_HINTS.search(ast.dump(default)):
+            return True
+    return False
+
+
 def _call_name(node: ast.Call) -> str:
-    if isinstance(node.func, ast.Name):
-        return node.func.id
-    if isinstance(node.func, ast.Attribute):
+    return _attribute_chain(node.func)
+
+
+def _attribute_chain(node: ast.expr) -> str:
+    """Extract a dotted name like 'yaml.SafeLoader' from an arbitrary expr node."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
         parts = []
-        cur: ast.expr = node.func
+        cur: ast.expr = node
         while isinstance(cur, ast.Attribute):
             parts.append(cur.attr)
             cur = cur.value
@@ -195,11 +355,16 @@ def _sql_finding(path: str, line: int, technique: str) -> Finding:
     )
 
 
+# ---------------------------------------------------------------------------
+# JS/TS rules (regex-based v1 -- see ARCHITECTURE.md open question)
+# ---------------------------------------------------------------------------
+
 _JS_SECRET_RE = re.compile(
-    r"(?i)(const|let|var)\s+(\w*(key|secret|token|password)\w*)\s*=\s*[\"\'](sk-|AKIA|ghp_|xox)[^\"\']{10,}[\"\']"
+    r"(?i)(const|let|var)\s+(\w*(key|secret|token|password)\w*)\s*=\s*[\"'](sk-|AKIA|ghp_|xox)[^\"']{10,}[\"']"
 )
 _JS_EVAL_RE = re.compile(r"\beval\s*\(")
-_JS_CORS_RE = re.compile(r"Access-Control-Allow-Origin[\"\']?\s*[:,]\s*[\"\']\*[\"\']")
+_JS_CORS_RE = re.compile(r"Access-Control-Allow-Origin[\"']?\s*[:,]\s*[\"']\*[\"']")
+_JS_WEAK_CRYPTO_RE = re.compile(r"createHash\(\s*[\"'](md5|sha1)[\"']\s*\)")
 
 
 def _scan_js(file: FileToScan) -> list[Finding]:
@@ -245,6 +410,25 @@ def _scan_js(file: FileToScan) -> list[Finding]:
                     explanation="Access-Control-Allow-Origin is set to '*' -- review before production.",
                     confidence=0.8,
                     rule_id="cors-allow-all",
+                )
+            )
+        match = _JS_WEAK_CRYPTO_RE.search(line)
+        if match:
+            algo = match.group(1)
+            findings.append(
+                Finding(
+                    id=f"static-{file.path}-{i}-weakcrypto",
+                    source="static",
+                    severity=Severity.MEDIUM,
+                    file=file.path,
+                    line=i,
+                    title=f"Weak hash algorithm ({algo})",
+                    explanation=(
+                        f"{algo.upper()} is broken for security purposes. Fine for non-security "
+                        "checksums; avoid it for passwords, tokens, or signatures."
+                    ),
+                    confidence=0.5,
+                    rule_id="weak-crypto",
                 )
             )
     return findings
