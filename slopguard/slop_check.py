@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -30,14 +31,29 @@ PYPI_URL = "https://pypi.org/pypi/{name}/json"
 NPM_URL = "https://registry.npmjs.org/{name}"
 
 # Standard library / built-in modules should never be looked up.
-_PY_STDLIB_SKIP = {
-    "os", "sys", "re", "json", "typing", "pathlib", "datetime", "collections",
-    "itertools", "functools", "subprocess", "unittest", "logging", "math",
-    "random", "time", "io", "abc", "enum", "dataclasses", "asyncio", "ast",
-    "argparse", "hashlib", "base64", "uuid", "threading", "queue", "socket",
-    "shutil", "tempfile", "copy", "csv", "sqlite3", "xml", "html", "http",
-    "urllib", "email", "string", "textwrap", "traceback", "warnings", "weakref",
-}
+# sys.stdlib_module_names (Python 3.10+) gives the full, accurate list --
+# far more complete than a hand-maintained set. An earlier hand-picked list
+# here missed __future__, inspect, types, errno, operator, platform, and
+# dozens more, which showed up as 66 false "hallucinated package" flags
+# when this scanner was run against the real Flask codebase.
+if hasattr(sys, "stdlib_module_names"):
+    _PY_STDLIB_SKIP = set(sys.stdlib_module_names)
+else:  # pragma: no cover -- fallback for Python < 3.10
+    _PY_STDLIB_SKIP = {
+        "os", "sys", "re", "json", "typing", "pathlib", "datetime", "collections",
+        "itertools", "functools", "subprocess", "unittest", "logging", "math",
+        "random", "time", "io", "abc", "enum", "dataclasses", "asyncio", "ast",
+        "argparse", "hashlib", "base64", "uuid", "threading", "queue", "socket",
+        "shutil", "tempfile", "copy", "csv", "sqlite3", "xml", "html", "http",
+        "urllib", "email", "string", "textwrap", "traceback", "warnings", "weakref",
+        "__future__", "inspect", "types", "errno", "operator", "platform", "code",
+        "rlcompleter",
+    }
+
+# Typing-stub-only pseudo-modules: real under a type checker via typeshed,
+# but never actually installed at runtime, so a PyPI lookup would always
+# false-flag as "hallucinated".
+_PY_STDLIB_SKIP |= {"_typeshed"}
 
 _NEW_PACKAGE_THRESHOLD_DAYS = 90
 
