@@ -55,7 +55,43 @@ else:  # pragma: no cover -- fallback for Python < 3.10
 # false-flag as "hallucinated".
 _PY_STDLIB_SKIP |= {"_typeshed"}
 
+# Python 2 stdlib modules that still show up in py2/py3 compat shims (e.g.
+# `requests`' own tests/compat.py, found during real-world testing). Not
+# in sys.stdlib_module_names since that reflects the running Python 3
+# interpreter, but these are clearly first-party stdlib names, not
+# hallucinations.
+_PY2_STDLIB_SKIP = {
+    "StringIO", "cStringIO", "BaseHTTPServer", "SimpleHTTPServer",
+    "urllib2", "urlparse", "Queue", "ConfigParser", "cPickle", "httplib",
+    "__builtin__", "Tkinter", "thread", "commands",
+}
+_PY_STDLIB_SKIP |= _PY2_STDLIB_SKIP
+
 _NEW_PACKAGE_THRESHOLD_DAYS = 90
+
+# Common cases where the import name doesn't match the PyPI package name --
+# without this, a correct `import OpenSSL` (from the real pyOpenSSL
+# package, found in requests' own codebase) would 404 against PyPI and
+# falsely read as a hallucinated package. Not exhaustive by design.
+_IMPORT_NAME_TO_PYPI_NAME = {
+    "OpenSSL": "pyOpenSSL",
+    "cv2": "opencv-python",
+    "bs4": "beautifulsoup4",
+    "sklearn": "scikit-learn",
+    "yaml": "PyYAML",
+    "PIL": "Pillow",
+    "dateutil": "python-dateutil",
+    "Crypto": "pycryptodome",
+    "jwt": "PyJWT",
+    "docx": "python-docx",
+    "dotenv": "python-dotenv",
+    "git": "GitPython",
+    "attr": "attrs",
+    "jose": "python-jose",
+    "magic": "python-magic",
+    "usb": "pyusb",
+    "serial": "pyserial",
+}
 
 
 def _cache_path() -> Path:
@@ -212,16 +248,19 @@ def check_files_for_hallucinations(files: list[FileToScan]) -> list[Finding]:
             packages = []
 
         for package, ecosystem in packages:
-            cache_key = f"{ecosystem}:{package}"
+            lookup_name = _IMPORT_NAME_TO_PYPI_NAME.get(package, package) if ecosystem == "pypi" else package
+            cache_key = f"{ecosystem}:{lookup_name}"
             if cache_key in cache:
                 exists, age_days = cache[cache_key]["exists"], cache[cache_key]["age_days"]
             else:
                 if ecosystem == "pypi":
-                    exists, age_days = check_pypi_package(package)
+                    exists, age_days = check_pypi_package(lookup_name)
                 else:
-                    exists, age_days = check_npm_package(package)
+                    exists, age_days = check_npm_package(lookup_name)
                 cache[cache_key] = {"exists": exists, "age_days": age_days}
 
+            # Report using the name actually seen in the import statement,
+            # even though the lookup used the aliased PyPI name.
             finding = _finding_for(file.path, package, ecosystem, exists, age_days)
             if finding:
                 findings.append(finding)
