@@ -1,138 +1,135 @@
 """
-Intent/judge layer.
+Intent/judge layer -- fully local, no API key required.
 
-Per ARCHITECTURE.md's Option A/B decision: this implements Option B
-(LLM-as-judge) since it's far less engineering than training/adapting an
-NLI model, and is good enough for a v1 demo.
+Earlier drafts of this module called the Anthropic API for an LLM-as-judge
+approach. That's been removed by request: this module now never makes a
+network call and needs no ANTHROPIC_API_KEY or any other credential.
 
-If ANTHROPIC_API_KEY is set, this calls the real Claude API with a
-structured prompt and parses the JSON response. If no key is set (e.g.
-running in a sandbox with no credentials), it falls back to a small,
-clearly-labeled heuristic judge so the rest of the pipeline still works
-end-to-end -- this fallback is NOT a substitute for the real judge and
-should never be presented as equivalent accuracy in the README.
+What runs instead is a rule-based heuristic judge that checks the code
+against its stated intent (a docstring, commit message, or PR description)
+using pattern matching across a set of common "intent concepts" (auth,
+validation, deletion, error handling, logging). It is intentionally
+conservative -- it will miss subtle divergences a real LLM or NLI judge
+would catch, and its findings are always marked lower-confidence than the
+static-scan and dependency-hallucination findings.
+
+If you later want a stronger local judge without an API key, the natural
+upgrade path is a small NLI model (e.g. DeBERTa, as used in the Veritas
+project) run entirely on-device via `sentence-transformers` /
+`transformers` -- see ARCHITECTURE.md for that tradeoff. That wasn't wired
+up here because pulling model weights requires network access to
+huggingface.co, which isn't guaranteed in every environment this project
+might run in; the heuristic below has zero extra dependencies and always
+works offline.
 """
+
 from __future__ import annotations
 
-import json
-import os
-from typing import Optional
-
-import requests
+import re
 
 from slopguard.models import Finding, Severity
 from slopguard.static_scan import FileToScan
 
-ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
-MODEL = "claude-sonnet-4-6"
-
-_JUDGE_SYSTEM_PROMPT = """You review a code change against its stated intent \
-(a docstring, commit message, or PR description) and report ONLY genuine \
-divergences between what the code claims to do and what it actually does -- \
-missing checks, inverted conditions, silently swallowed errors, or logic \
-that doesn't match the description. Do not report style issues or \
-things static analysis would already catch (secrets, injection, eval).
-
-Respond with ONLY a JSON array (no prose, no markdown fences). Each element:
-{"line": <int or null>, "title": "<short title>", "explanation": "<one plain-English sentence>", "confidence": <0.0-1.0>}
-
-If there are no divergences, respond with an empty array: []
-"""
-
-
-def _call_llm_judge(code: str, stated_intent: str, timeout: float = 30.0) -> list[dict]:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set")
-
-    payload = {
-        "model": MODEL,
-        "max_tokens": 1000,
-        "system": _JUDGE_SYSTEM_PROMPT,
-        "messages": [
-            {
-                "role": "user",
-                "content": f"Stated intent:\n{stated_intent}\n\nCode:\n```\n{code}\n```",
-            }
+# Each concept: keywords that would signal the concept is mentioned in the
+# stated intent, and keywords that would signal it's actually handled in
+# the code. If the intent mentions it and the code shows no trace of it,
+# that's a (weak, heuristic) signal worth a human's attention.
+_INTENT_CONCEPTS: dict[str, dict[str, list[str]]] = {
+    "authentication/authorization": {
+        "intent": ["auth", "login", "permission", "authoriz", "access control", "role"],
+        "code": [
+            "auth",
+            "login",
+            "permission",
+            "role",
+            "is_admin",
+            "current_user",
+            "@login_required",
+            "depends(",
         ],
-    }
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-    }
-    resp = requests.post(ANTHROPIC_API_URL, json=payload, headers=headers, timeout=timeout)
-    resp.raise_for_status()
-    data = resp.json()
-    text_blocks = [b["text"] for b in data.get("content", []) if b.get("type") == "text"]
-    raw = "".join(text_blocks).strip()
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return []
+    },
+    "input validation": {
+        "intent": ["valid", "sanitiz", "check input", "input check"],
+        "code": [
+            "valid",
+            "sanitiz",
+            "assert ",
+            "raise ",
+            "if not ",
+            "isinstance(",
+            "pydantic",
+            "basemodel",
+        ],
+    },
+    "deletion/removal": {
+        "intent": ["delete", "remove", "drop"],
+        "code": ["delete", "remove", "drop", ".pop(", "del "],
+    },
+    "error handling": {
+        "intent": ["error", "exception", "fail gracefully", "handle failure"],
+        "code": ["try:", "except", "raise", "error", "exception"],
+    },
+    "logging/audit": {
+        "intent": ["log", "audit", "track"],
+        "code": ["log", "logger", "logging", "audit"],
+    },
+    "rate limiting": {
+        "intent": ["rate limit", "throttle", "quota"],
+        "code": ["rate", "limit", "throttle", "quota"],
+    },
+}
+
+_NEGATION_RE = re.compile(r"\b(no|not|without|skip|disable|remove)\b", re.IGNORECASE)
 
 
-def _heuristic_judge(code: str, stated_intent: str) -> list[dict]:
-    """
-    Extremely simple keyword-based heuristic used only as a fallback when
-    no ANTHROPIC_API_KEY is configured -- exists so the pipeline runs
-    end-to-end without an API key -- it is intentionally conservative and
-    will miss almost everything a real judge would catch.
-    """
-    intent_keywords = {
-        "auth": ["auth", "login", "permission", "authoriz"],
-        "validate": ["valid", "sanitiz", "check"],
-        "delete": ["delete", "remove", "drop"],
-    }
-    findings = []
-    intent_lower = stated_intent.lower()
-    code_lower = code.lower()
-    for concept, keywords in intent_keywords.items():
-        mentioned_in_intent = any(k in intent_lower for k in keywords)
-        present_in_code = any(k in code_lower for k in keywords)
-        if mentioned_in_intent and not present_in_code:
-            findings.append(
-                {
-                    "line": None,
-                    "title": f"Stated intent mentions '{concept}' but code has no matching logic",
-                    "explanation": (
-                        f"The description references {concept}-related behavior, but no "
-                        f"matching keyword appears in the code -- worth a manual check."
-                    ),
-                    "confidence": 0.3,
-                }
-            )
-    return findings
+def _mentions_any(text: str, keywords: list[str]) -> bool:
+    return any(k in text for k in keywords)
 
 
 def judge_file(file: FileToScan, stated_intent: str) -> list[Finding]:
+    """
+    Compare a file's code against its stated intent using local keyword
+    heuristics only. No network calls, no API key.
+    """
     if not stated_intent.strip():
         return []
 
-    try:
-        raw_findings = _call_llm_judge(file.content, stated_intent)
-        used_fallback = False
-    except (RuntimeError, requests.RequestException):
-        raw_findings = _heuristic_judge(file.content, stated_intent)
-        used_fallback = True
-
+    intent_lower = stated_intent.lower()
+    code_lower = file.content.lower()
     findings: list[Finding] = []
-    for i, rf in enumerate(raw_findings):
-        title = rf.get("title", "Possible intent/behavior divergence")
-        explanation = rf.get("explanation", "")
-        if used_fallback:
-            explanation += " (heuristic fallback judge -- no ANTHROPIC_API_KEY configured, verify manually)"
+
+    for concept, kw in _INTENT_CONCEPTS.items():
+        mentioned = _mentions_any(intent_lower, kw["intent"])
+        if not mentioned:
+            continue
+        handled = _mentions_any(code_lower, kw["code"])
+        if handled:
+            continue
+
+        # Weak extra signal: if the intent text negates the concept right
+        # next to the keyword ("no auth needed"), don't flag it -- the
+        # absence is probably intentional.
+        idx = next((intent_lower.find(k) for k in kw["intent"] if k in intent_lower), -1)
+        nearby = intent_lower[max(0, idx - 20) : idx + 20] if idx >= 0 else ""
+        if _NEGATION_RE.search(nearby):
+            continue
+
         findings.append(
             Finding(
-                id=f"judge-{file.path}-{i}",
+                id=f"judge-{file.path}-{concept.replace('/', '-').replace(' ', '-')}",
                 source="judge",
-                severity=Severity.MEDIUM,
+                severity=Severity.LOW,
                 file=file.path,
-                line=rf.get("line"),
-                title=title,
-                explanation=explanation,
-                confidence=float(rf.get("confidence", 0.5)),
-                rule_id="intent-drift",
+                line=None,
+                title=f"Stated intent mentions {concept}, but code shows no matching logic",
+                explanation=(
+                    f"The description references {concept}, but no related keyword "
+                    f"appears in the code -- this is a low-confidence heuristic signal, "
+                    f"not a confirmed bug. Worth a manual check."
+                ),
+                confidence=0.3,
+                rule_id="intent-drift-heuristic",
             )
         )
+
     return findings
