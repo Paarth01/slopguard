@@ -46,7 +46,7 @@ your resume so a slow first load doesn't look broken.
 
 ## 3. Enable the GitHub Action on a real repo
 
-The Action (`action.yml` + `action/Dockerfile` + `action/entrypoint.sh` +
+The Action (`action.yml` + `action/entrypoint.sh` +
 `action/post_comment.py`) is built and tested — `post_comment.py` was
 verified locally to make a real (correctly-rejected, since it used a fake
 token) call to `api.github.com`, confirming the request-building logic is
@@ -74,6 +74,8 @@ correct end-to-end.
            with:
              path: .
              fail-on: critical
+           env:
+             GITHUB_TOKEN: ${{ github.token }}
    ```
 4. Push, open the PR, and watch the Actions tab — you should see the scan
    run and, if there are findings, a comment appear on the PR
