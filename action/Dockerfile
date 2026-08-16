@@ -1,18 +1,34 @@
-FROM python:3.11-slim
+name: "SlopGuard"
+description: "Security scanner for AI-generated code: catches hallucinated dependencies, unsafe patterns, and intent drift."
+author: "Paarth Agl"
 
-WORKDIR /app
+inputs:
+  path:
+    description: "Path to scan (default: repo root)"
+    required: false
+    default: "."
+  fail-on:
+    description: "Minimum severity that fails the build: critical | high | medium | low"
+    required: false
+    default: "high"
+  exclude:
+    description: "Comma-separated paths to exclude from scan"
+    required: false
+    default: ""
+  github-token:
+    description: "GitHub token for API calls — pass secrets.GITHUB_TOKEN from the workflow"
+    required: false
+    default: ""
 
-COPY pyproject.toml requirements.txt ./
-COPY slopguard ./slopguard
-COPY action ./action
-COPY templates ./templates
-COPY README.md .
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  env:
+    INPUT_PATH: ${{ inputs.path }}
+    INPUT_FAIL_ON: ${{ inputs.fail-on }}
+    INPUT_EXCLUDE: ${{ inputs.exclude }}
+    GITHUB_TOKEN: ${{ inputs.github-token }}
 
-RUN pip install --no-cache-dir -e .
-
-EXPOSE 8000
-
-# Uses shell form so $PORT expands -- Render (and most PaaS providers) set
-# PORT at runtime and expect the app to bind to it; falls back to 8000 for
-# local `docker compose up`.
-CMD ["sh", "-c", "uvicorn slopguard.api:app --host 0.0.0.0 --port ${PORT:-8000}"]
+branding:
+  icon: "shield"
+  color: "purple"
