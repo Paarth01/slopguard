@@ -11,7 +11,9 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: ./               # points at this repo's own action.yml
+      - uses: ./
         with:
           path: .
           fail-on: critical
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
