@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import shutil
+import asyncio
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Annotated
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
@@ -26,20 +27,26 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+def _extract_upload(zip_bytes: bytes, extract_dir: Path) -> None:
+    """Blocking file I/O, run off the event loop via asyncio.to_thread."""
+    zip_path = extract_dir.parent / "upload.zip"
+    with open(zip_path, "wb") as f:
+        f.write(zip_bytes)
+    with zipfile.ZipFile(zip_path) as zf:
+        zf.extractall(extract_dir)
+
+
 @app.post("/scan", response_model=ScanResult)
-async def scan_upload(file: UploadFile = File(...)) -> ScanResult:
+async def scan_upload(file: Annotated[UploadFile, File()]) -> ScanResult:
     """Accepts a .zip of a codebase, scans it, returns the aggregated result."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        zip_path = tmp_path / "upload.zip"
-        with open(zip_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
-
         extract_dir = tmp_path / "extracted"
         extract_dir.mkdir()
+
+        zip_bytes = await file.read()
         try:
-            with zipfile.ZipFile(zip_path) as zf:
-                zf.extractall(extract_dir)
+            await asyncio.to_thread(_extract_upload, zip_bytes, extract_dir)
         except zipfile.BadZipFile:
             return JSONResponse(status_code=400, content={"error": "not a valid zip file"})
 

@@ -16,6 +16,7 @@ Registry responses are cached to a local JSON file so repeated runs
 from __future__ import annotations
 
 import ast
+import contextlib
 import json
 import re
 import sys
@@ -164,10 +165,8 @@ def _load_cache() -> dict:
 
 
 def _save_cache(cache: dict) -> None:
-    try:
+    with contextlib.suppress(OSError):
         _cache_path().write_text(json.dumps(cache, indent=2))
-    except OSError:
-        pass
 
 
 def extract_python_imports(content: str) -> list[str]:
@@ -181,9 +180,9 @@ def extract_python_imports(content: str) -> list[str]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 names.add(alias.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom):
-            if node.module and node.level == 0:
-                names.add(node.module.split(".")[0])
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            # level == 0 skips relative imports (from . import x)
+            names.add(node.module.split(".")[0])
     return sorted(n for n in names if n and n not in _PY_STDLIB_SKIP)
 
 

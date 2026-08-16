@@ -58,27 +58,32 @@ def _scan_python(file: FileToScan) -> list[Finding]:
         # Rule: hardcoded-secret
         if isinstance(node, ast.Assign):
             for target in node.targets:
-                if isinstance(target, ast.Name) and _SECRET_KEY_PATTERN.search(target.id):
-                    if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
-                        val = node.value.value
-                        if _SECRET_VALUE_PATTERN.match(val) or len(val) >= 20:
-                            findings.append(
-                                Finding(
-                                    id=f"static-{file.path}-{node.lineno}-secret",
-                                    source="static",
-                                    severity=Severity.CRITICAL,
-                                    file=file.path,
-                                    line=node.lineno,
-                                    title="Hardcoded credential-like value",
-                                    explanation=(
-                                        f"'{target.id}' is assigned a hardcoded string that looks "
-                                        "like a secret or API key -- move it to an environment "
-                                        "variable instead."
-                                    ),
-                                    confidence=0.75,
-                                    rule_id="hardcoded-secret",
-                                )
-                            )
+                if (
+                    isinstance(target, ast.Name)
+                    and _SECRET_KEY_PATTERN.search(target.id)
+                    and isinstance(node.value, ast.Constant)
+                    and isinstance(node.value.value, str)
+                    and (
+                        _SECRET_VALUE_PATTERN.match(node.value.value) or len(node.value.value) >= 20
+                    )
+                ):
+                    findings.append(
+                        Finding(
+                            id=f"static-{file.path}-{node.lineno}-secret",
+                            source="static",
+                            severity=Severity.CRITICAL,
+                            file=file.path,
+                            line=node.lineno,
+                            title="Hardcoded credential-like value",
+                            explanation=(
+                                f"'{target.id}' is assigned a hardcoded string that looks "
+                                "like a secret or API key -- move it to an environment "
+                                "variable instead."
+                            ),
+                            confidence=0.75,
+                            rule_id="hardcoded-secret",
+                        )
+                    )
 
         # Rule: eval-exec-on-input
         if isinstance(node, ast.Call):
@@ -130,26 +135,29 @@ def _scan_python(file: FileToScan) -> list[Finding]:
 
             # Rule: cors-allow-all
             for kw in node.keywords:
-                if kw.arg == "allow_origins" and isinstance(kw.value, ast.List):
-                    if any(
+                if (
+                    kw.arg == "allow_origins"
+                    and isinstance(kw.value, ast.List)
+                    and any(
                         isinstance(elt, ast.Constant) and elt.value == "*" for elt in kw.value.elts
-                    ):
-                        findings.append(
-                            Finding(
-                                id=f"static-{file.path}-{node.lineno}-cors",
-                                source="static",
-                                severity=Severity.MEDIUM,
-                                file=file.path,
-                                line=node.lineno,
-                                title="CORS allows all origins",
-                                explanation=(
-                                    "allow_origins=['*'] lets any website call this API from a "
-                                    "browser -- fine for a demo, risky in production."
-                                ),
-                                confidence=0.9,
-                                rule_id="cors-allow-all",
-                            )
+                    )
+                ):
+                    findings.append(
+                        Finding(
+                            id=f"static-{file.path}-{node.lineno}-cors",
+                            source="static",
+                            severity=Severity.MEDIUM,
+                            file=file.path,
+                            line=node.lineno,
+                            title="CORS allows all origins",
+                            explanation=(
+                                "allow_origins=['*'] lets any website call this API from a "
+                                "browser -- fine for a demo, risky in production."
+                            ),
+                            confidence=0.9,
+                            rule_id="cors-allow-all",
                         )
+                    )
 
             # Rule: weak-crypto -- md5/sha1 used for hashing (fine for checksums,
             # weak for passwords/tokens; flagged at medium confidence since we
