@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY pyproject.toml requirements.txt ./
 COPY slopguard ./slopguard
+COPY action ./action
 COPY templates ./templates
 COPY README.md .
 
