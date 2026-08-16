@@ -14,7 +14,8 @@ inputs:
 
 runs:
   using: "docker"
-  image: "action/Dockerfile"
+  image: "Dockerfile"
+  entrypoint: "action/entrypoint.sh"
   env:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
