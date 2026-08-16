@@ -1,0 +1,21 @@
+name: "SlopGuard Self-Check"
+description: "Run SlopGuard self-check"
+inputs:
+  path:
+    description: "path to repo root"
+    required: true
+    default: "."
+  fail-on:
+    description: "failure level"
+    required: false
+    default: "critical"
+runs:
+  using: composite
+  steps:
+    - name: Run self-check script
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Running SlopGuard self-check on '${{ inputs.path }}' (fail-on=${{ inputs.fail-on }})"
+        # GITHUB_ACTION_PATH points to the action directory on the runner
+        bash "$GITHUB_ACTION_PATH/scripts/self-check.sh" "${{ inputs.path }}" "${{ inputs.fail-on }}"

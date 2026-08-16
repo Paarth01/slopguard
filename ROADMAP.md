@@ -53,7 +53,10 @@
 ## Phase 5 — FastAPI service + GitHub Action ✅ CODE DONE, deploy pending
 - [x] `POST /scan` accepts a zipped codebase, returns JSON `ScanResult`
 - [x] Verified end-to-end with a real zip upload via TestClient
-- [x] `action.yml`, `action/Dockerfile`, `action/entrypoint.sh` built —
+- [x] `action.yml` (reuses the root Dockerfile via `runs.entrypoint`,
+      after a real build confirmed a separate `action/Dockerfile` can't
+      reach repo-root files -- see fix commit for details),
+      `action/entrypoint.sh` built —
       entrypoint tested locally outside Docker (scan runs, exit code is
       correct, report is generated)
 - [x] **PR-comment posting built and tested.** `action/post_comment.py`

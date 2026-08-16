@@ -11,7 +11,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: ./               # points at this repo's own action.yml
+      - uses: ./action
         with:
           path: .
           fail-on: critical
