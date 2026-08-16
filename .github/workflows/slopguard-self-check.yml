@@ -1,5 +1,4 @@
 name: SlopGuard Self-Check
-
 on:
   pull_request:
     branches: [main]
@@ -10,15 +9,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run SlopGuard
-        uses: ./
+      - uses: actions/checkout@v4
+      - uses: ./
         with:
           path: .
           fail-on: critical
           exclude: tests/fixtures/
-          github-token: ${{ secrets.GITHUB_TOKEN }}
