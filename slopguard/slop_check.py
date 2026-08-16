@@ -12,6 +12,7 @@ against the real PyPI or npm registry. Flags:
 Registry responses are cached to a local JSON file so repeated runs
 (and CI runs across the same PR) don't hammer the public APIs.
 """
+
 from __future__ import annotations
 
 import ast
@@ -20,7 +21,6 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 import requests
 
@@ -40,13 +40,57 @@ if hasattr(sys, "stdlib_module_names"):
     _PY_STDLIB_SKIP = set(sys.stdlib_module_names)
 else:  # pragma: no cover -- fallback for Python < 3.10
     _PY_STDLIB_SKIP = {
-        "os", "sys", "re", "json", "typing", "pathlib", "datetime", "collections",
-        "itertools", "functools", "subprocess", "unittest", "logging", "math",
-        "random", "time", "io", "abc", "enum", "dataclasses", "asyncio", "ast",
-        "argparse", "hashlib", "base64", "uuid", "threading", "queue", "socket",
-        "shutil", "tempfile", "copy", "csv", "sqlite3", "xml", "html", "http",
-        "urllib", "email", "string", "textwrap", "traceback", "warnings", "weakref",
-        "__future__", "inspect", "types", "errno", "operator", "platform", "code",
+        "os",
+        "sys",
+        "re",
+        "json",
+        "typing",
+        "pathlib",
+        "datetime",
+        "collections",
+        "itertools",
+        "functools",
+        "subprocess",
+        "unittest",
+        "logging",
+        "math",
+        "random",
+        "time",
+        "io",
+        "abc",
+        "enum",
+        "dataclasses",
+        "asyncio",
+        "ast",
+        "argparse",
+        "hashlib",
+        "base64",
+        "uuid",
+        "threading",
+        "queue",
+        "socket",
+        "shutil",
+        "tempfile",
+        "copy",
+        "csv",
+        "sqlite3",
+        "xml",
+        "html",
+        "http",
+        "urllib",
+        "email",
+        "string",
+        "textwrap",
+        "traceback",
+        "warnings",
+        "weakref",
+        "__future__",
+        "inspect",
+        "types",
+        "errno",
+        "operator",
+        "platform",
+        "code",
         "rlcompleter",
     }
 
@@ -61,9 +105,20 @@ _PY_STDLIB_SKIP |= {"_typeshed"}
 # interpreter, but these are clearly first-party stdlib names, not
 # hallucinations.
 _PY2_STDLIB_SKIP = {
-    "StringIO", "cStringIO", "BaseHTTPServer", "SimpleHTTPServer",
-    "urllib2", "urlparse", "Queue", "ConfigParser", "cPickle", "httplib",
-    "__builtin__", "Tkinter", "thread", "commands",
+    "StringIO",
+    "cStringIO",
+    "BaseHTTPServer",
+    "SimpleHTTPServer",
+    "urllib2",
+    "urlparse",
+    "Queue",
+    "ConfigParser",
+    "cPickle",
+    "httplib",
+    "__builtin__",
+    "Tkinter",
+    "thread",
+    "commands",
 }
 _PY_STDLIB_SKIP |= _PY2_STDLIB_SKIP
 
@@ -140,11 +195,39 @@ _JS_IMPORT_RE = re.compile(
 # be looked up against the npm registry (a lookup would 404 and falsely
 # read as a "hallucinated package").
 _NODE_BUILTIN_SKIP = {
-    "fs", "path", "http", "https", "crypto", "os", "util", "events", "stream",
-    "child_process", "buffer", "url", "querystring", "assert", "net", "dns",
-    "zlib", "tls", "readline", "cluster", "worker_threads", "process", "vm",
-    "module", "timers", "string_decoder", "punycode", "v8", "perf_hooks",
-    "async_hooks", "inspector", "trace_events", "diagnostics_channel",
+    "fs",
+    "path",
+    "http",
+    "https",
+    "crypto",
+    "os",
+    "util",
+    "events",
+    "stream",
+    "child_process",
+    "buffer",
+    "url",
+    "querystring",
+    "assert",
+    "net",
+    "dns",
+    "zlib",
+    "tls",
+    "readline",
+    "cluster",
+    "worker_threads",
+    "process",
+    "vm",
+    "module",
+    "timers",
+    "string_decoder",
+    "punycode",
+    "v8",
+    "perf_hooks",
+    "async_hooks",
+    "inspector",
+    "trace_events",
+    "diagnostics_channel",
 }
 
 
@@ -156,8 +239,7 @@ def extract_js_imports(content: str) -> list[str]:
         # Modern Node builtins are often imported with an explicit
         # "node:" scheme (e.g. `import fs from "node:fs"`) -- strip it so
         # the builtin skip-list check below still applies.
-        if raw.startswith("node:"):
-            raw = raw[len("node:") :]
+        raw = raw.removeprefix("node:")
         if raw.startswith("@"):
             parts = raw.split("/")
             names.add("/".join(parts[:2]))
@@ -166,7 +248,7 @@ def extract_js_imports(content: str) -> list[str]:
     return sorted(n for n in names if n and n not in _NODE_BUILTIN_SKIP)
 
 
-def check_pypi_package(name: str, timeout: float = 5.0) -> tuple[bool, Optional[int]]:
+def check_pypi_package(name: str, timeout: float = 5.0) -> tuple[bool, int | None]:
     """Returns (exists, age_in_days_or_None)."""
     try:
         resp = requests.get(PYPI_URL.format(name=name), timeout=timeout)
@@ -195,7 +277,7 @@ def check_pypi_package(name: str, timeout: float = 5.0) -> tuple[bool, Optional[
         return True, None
 
 
-def check_npm_package(name: str, timeout: float = 5.0) -> tuple[bool, Optional[int]]:
+def check_npm_package(name: str, timeout: float = 5.0) -> tuple[bool, int | None]:
     try:
         resp = requests.get(NPM_URL.format(name=name), timeout=timeout)
     except requests.RequestException:
@@ -216,7 +298,9 @@ def check_npm_package(name: str, timeout: float = 5.0) -> tuple[bool, Optional[i
         return True, None
 
 
-def _finding_for(file_path: str, package: str, ecosystem: str, exists: bool, age_days: Optional[int]) -> Optional[Finding]:
+def _finding_for(
+    file_path: str, package: str, ecosystem: str, exists: bool, age_days: int | None
+) -> Finding | None:
     if not exists:
         return Finding(
             id=f"slop-{file_path}-{package}",
@@ -264,7 +348,7 @@ def _local_module_names(files: list[FileToScan]) -> set[str]:
     names: set[str] = set()
     for f in files:
         for part in Path(f.path).parts:
-            names.add(part[:-3] if part.endswith(".py") else part)
+            names.add(part.removesuffix(".py"))
     return names
 
 
@@ -285,7 +369,9 @@ def check_files_for_hallucinations(files: list[FileToScan]) -> list[Finding]:
             if package in local_names:
                 continue  # first-party module local to this codebase, not a registry lookup candidate
 
-            lookup_name = _IMPORT_NAME_TO_PYPI_NAME.get(package, package) if ecosystem == "pypi" else package
+            lookup_name = (
+                _IMPORT_NAME_TO_PYPI_NAME.get(package, package) if ecosystem == "pypi" else package
+            )
             cache_key = f"{ecosystem}:{lookup_name}"
             if cache_key in cache:
                 exists, age_days = cache[cache_key]["exists"], cache[cache_key]["age_days"]
