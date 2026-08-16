@@ -23,11 +23,6 @@ inputs:
 runs:
   using: "docker"
   image: 'docker://Dockerfile'
-  env:
-    INPUT_PATH: ${{ inputs.path }}
-    INPUT_FAIL_ON: ${{ inputs.fail-on }}
-    INPUT_EXCLUDE: ${{ inputs.exclude }}
-    GITHUB_TOKEN: ${{ inputs.github-token }}
 
 branding:
   icon: "shield"
