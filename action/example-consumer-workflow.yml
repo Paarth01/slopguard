@@ -1,0 +1,30 @@
+# Example: how another repo would use the SlopGuard GitHub Action.
+#
+# Drop this into .github/workflows/slopguard.yml in the repo you want
+# scanned (not in this repo itself -- this file documents usage).
+#
+# Before this works, you need to:
+#   1. Push this repo (slopguard) to GitHub as its own public repo.
+#   2. Reference it below as <your-github-username>/slopguard@main
+#      (or @v1 once you've tagged a release -- see ROADMAP.md).
+
+name: SlopGuard Security Scan
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  slopguard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # required for SlopGuard to post/update the PR comment
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run SlopGuard
+        uses: <your-github-username>/slopguard@main
+        with:
+          path: .
+          fail-on: high

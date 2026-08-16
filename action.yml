@@ -1,0 +1,25 @@
+name: "SlopGuard"
+description: "Security scanner for AI-generated code: catches hallucinated dependencies, unsafe patterns, and intent drift."
+author: "Paarth Agl"
+
+inputs:
+  path:
+    description: "Path to scan (default: repo root)"
+    required: false
+    default: "."
+  fail-on:
+    description: "Minimum severity that fails the build: critical | high | medium | low"
+    required: false
+    default: "high"
+
+runs:
+  using: "docker"
+  image: "action/Dockerfile"
+  env:
+    INPUT_PATH: ${{ inputs.path }}
+    INPUT_FAIL_ON: ${{ inputs.fail-on }}
+    GITHUB_TOKEN: ${{ github.token }}
+
+branding:
+  icon: "shield"
+  color: "purple"
