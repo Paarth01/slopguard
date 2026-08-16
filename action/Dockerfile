@@ -1,17 +1,16 @@
 FROM python:3.11-slim
 
-# Install any system deps here
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
-# Copy action code into container (adjust paths to your repo)
-COPY entrypoint.sh /entrypoint.sh
-COPY src/ /app/src/
+COPY pyproject.toml requirements.txt ./
+COPY slopguard ./slopguard
+COPY action ./action
+COPY templates ./templates
+COPY README.md .
 
+RUN pip install --no-cache-dir -e .
+
+COPY action/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
