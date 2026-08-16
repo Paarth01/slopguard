@@ -23,7 +23,7 @@ runs:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
     INPUT_EXCLUDE: ${{ inputs.exclude }}
-    GITHUB_TOKEN: ${{ github.token }}
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 branding:
   icon: "shield"
