@@ -18,7 +18,6 @@ runs:
   env:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
-    GITHUB_TOKEN: ${{ github.token }}
 
 branding:
   icon: "shield"

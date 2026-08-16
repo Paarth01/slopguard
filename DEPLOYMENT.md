@@ -74,6 +74,8 @@ correct end-to-end.
            with:
              path: .
              fail-on: critical
+           env:
+             GITHUB_TOKEN: ${{ github.token }}
    ```
 4. Push, open the PR, and watch the Actions tab — you should see the scan
    run and, if there are findings, a comment appear on the PR
