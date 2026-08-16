@@ -1,34 +1,21 @@
-name: "SlopGuard"
-description: "Security scanner for AI-generated code: catches hallucinated dependencies, unsafe patterns, and intent drift."
-author: "Paarth Agl"
-
+name: "SlopGuard Self-Check"
+description: "Run SlopGuard self-check"
 inputs:
   path:
-    description: "Path to scan (default: repo root)"
-    required: false
+    description: "path to repo root"
+    required: true
     default: "."
   fail-on:
-    description: "Minimum severity that fails the build: critical | high | medium | low"
+    description: "failure level"
     required: false
-    default: "high"
-  exclude:
-    description: "Comma-separated paths to exclude from scan"
-    required: false
-    default: ""
-  github-token:
-    description: "GitHub token for API calls — pass secrets.GITHUB_TOKEN from the workflow"
-    required: false
-    default: ""
-
+    default: "critical"
 runs:
-  using: "docker"
-  image: "Dockerfile"
-  env:
-    INPUT_PATH: ${{ inputs.path }}
-    INPUT_FAIL_ON: ${{ inputs.fail-on }}
-    INPUT_EXCLUDE: ${{ inputs.exclude }}
-    GITHUB_TOKEN: ${{ inputs.github-token }}
-
-branding:
-  icon: "shield"
-  color: "purple"
+  using: composite
+  steps:
+    - name: Run self-check script
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Running SlopGuard self-check on '${{ inputs.path }}' (fail-on=${{ inputs.fail-on }})"
+        # GITHUB_ACTION_PATH points to the action directory on the runner
+        bash "$GITHUB_ACTION_PATH/scripts/self-check.sh" "${{ inputs.path }}" "${{ inputs.fail-on }}"
