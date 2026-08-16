@@ -1,13 +1,14 @@
-# (inside action/entrypoint.sh, replace the existing SCAN_PATH/FAIL_ON lines)
-# safe read of inputs: prefer underscore form, fall back to hyphen form via printenv
-SCAN_PATH="$(printenv 'INPUT_PATH' || true)"
-SCAN_PATH="${SCAN_PATH:-.}"
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Try the canonical underscore var, otherwise try the hyphenated variant.
-FAIL_ON="$(printenv 'INPUT_FAIL_ON' || true)"
-if [ -z "$FAIL_ON" ]; then
-  FAIL_ON="$(printenv 'INPUT_FAIL-ON' || true)"
-fi
-FAIL_ON="${FAIL_ON:-high}"
+# Example: read GitHub Actions inputs from env
+path="${INPUT_PATH:-.}"
+fail_on="${INPUT_FAIL_ON:-high}"
+exclude="${INPUT_EXCLUDE:-}"
 
-echo "SlopGuard: scanning '$SCAN_PATH' (fail-on: $FAIL_ON)"
+# TODO: run your scanner binary / script here
+# Example placeholder:
+echo "Running SlopGuard on path=$path exclude=$exclude fail_on=$fail_on"
+
+# Exit 0 for now; replace with scanner exit status
+exit 0
