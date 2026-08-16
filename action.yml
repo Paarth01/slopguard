@@ -15,19 +15,15 @@ inputs:
     description: "Comma-separated paths to exclude from scan"
     required: false
     default: ""
-  github-token:
-    description: "GitHub token for API calls — pass secrets.GITHUB_TOKEN from the workflow"
-    required: false
-    default: ""
 
 runs:
   using: "docker"
-  image: 'Dockerfile'  # relative path to Dockerfile
+  image: './action/Dockerfile'
   env:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
     INPUT_EXCLUDE: ${{ inputs.exclude }}
-    GITHUB_TOKEN: ${{ inputs.github-token }}
+    GITHUB_TOKEN: ${{ github.token }}
 
 branding:
   icon: "shield"
