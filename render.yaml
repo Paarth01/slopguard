@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: slopguard
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    healthCheckPath: /health
