@@ -8,9 +8,10 @@ import zipfile
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 
+from slopguard.input_parser import parse_exclude_arg
 from slopguard.models import ScanResult
 from slopguard.scanner import run_scan
 
@@ -37,8 +38,16 @@ def _extract_upload(zip_bytes: bytes, extract_dir: Path) -> None:
 
 
 @app.post("/scan", response_model=ScanResult)
-async def scan_upload(file: Annotated[UploadFile, File()]) -> ScanResult:
-    """Accepts a .zip of a codebase, scans it, returns the aggregated result."""
+async def scan_upload(
+    file: Annotated[UploadFile, File()],
+    exclude: Annotated[str, Form()] = "",
+) -> ScanResult:
+    """
+    Accepts a .zip of a codebase, scans it, returns the aggregated result.
+
+    exclude: optional comma-separated paths to exclude, same syntax as the
+    CLI's --exclude flag (e.g. "tests,dist/*").
+    """
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         extract_dir = tmp_path / "extracted"
@@ -50,7 +59,7 @@ async def scan_upload(file: Annotated[UploadFile, File()]) -> ScanResult:
         except zipfile.BadZipFile:
             return JSONResponse(status_code=400, content={"error": "not a valid zip file"})
 
-        result = run_scan(str(extract_dir))
+        result = run_scan(str(extract_dir), exclude=parse_exclude_arg(exclude))
         # normalize the target name so it doesn't leak the temp path
         result.target = file.filename or "uploaded-archive"
         return result

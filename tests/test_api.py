@@ -47,3 +47,21 @@ def test_scan_rejects_bad_zip():
     bad = io.BytesIO(b"not a zip file")
     r = client.post("/scan", files={"file": ("bad.zip", bad, "application/zip")})
     assert r.status_code == 400
+
+
+def test_scan_with_exclude_param_skips_matching_files():
+    zip_buf = _make_zip(
+        {
+            "app.py": "def add(a, b):\n    return a + b\n",
+            "tests/test_app.py": 'def f(user_expr):\n    return eval(user_expr)\n',
+        }
+    )
+    r = client.post(
+        "/scan",
+        files={"file": ("test.zip", zip_buf, "application/zip")},
+        data={"exclude": "tests"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["files_scanned"] == 1
+    assert data["findings"] == []

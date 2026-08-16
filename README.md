@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/<your-username>/slopguard/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/slopguard/actions/workflows/ci.yml)
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://slopguard-nhri.onrender.com/docs)
-[![Tests](https://img.shields.io/badge/tests-63%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen)](#testing)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 SlopGuard catches the two failure modes that are unique to — or heavily
@@ -160,6 +160,10 @@ python -m slopguard scan ./path/to/code --report out
 # fail (exit code 1) if anything high severity or above is found -- for CI
 python -m slopguard scan ./path/to/code --fail-on high
 
+# exclude paths from the scan -- plain names exclude the whole subtree,
+# globs match against the relative path
+python -m slopguard scan ./path/to/code --exclude "tests,dist/*"
+
 # enable the intent/judge layer -- fully local, no API key needed
 python -m slopguard scan ./path/to/code --judge --intent "Add input validation to the login form"
 ```
@@ -216,6 +220,7 @@ jobs:
         with:
           path: .
           fail-on: high
+          exclude: "tests,dist/*"   # optional
         env:
           # action.yml's own runs.env can't reference the github context
           # (only 'inputs' is available there) -- the token is passed in
@@ -274,9 +279,9 @@ limitation: **[REAL_WORLD_TESTING.md](./REAL_WORLD_TESTING.md)**.
 ## Testing
 
 ```bash
-pytest -m "not integration"   # fast, no network, 59 tests
+pytest -m "not integration"   # fast, no network, 67 tests
 pytest -m integration          # hits real PyPI/npm APIs, 4 tests
-pytest                          # everything, 63 tests
+pytest                          # everything, 71 tests
 ```
 
 CI runs both `ruff check` (with an explicitly pinned rule selection —
@@ -303,7 +308,7 @@ slopguard/
 │   ├── entrypoint.sh        # runs the scan, posts the PR comment
 │   └── post_comment.py      # PR comment formatting + GitHub API calls
 ├── templates/report.html   # Jinja2 HTML report template
-├── tests/                  # 63 tests, fixtures for every rule
+├── tests/                  # 71 tests, fixtures for every rule
 ├── rules/ai-patterns.yml   # historical Semgrep-style sketch (superseded)
 ├── action.yml               # Action metadata (reuses root Dockerfile)
 ├── Dockerfile               # serves both the API and the Action

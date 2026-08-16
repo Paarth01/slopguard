@@ -28,6 +28,7 @@ jobs:
         with:
           path: .
           fail-on: high
+          exclude: "tests,dist/*"   # optional -- omit or leave empty to scan everything
         env:
           # action.yml's own runs.env can't reference the github context
           # (only 'inputs' is available there) -- so the token is passed

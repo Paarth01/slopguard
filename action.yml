@@ -11,6 +11,13 @@ inputs:
     description: "Minimum severity that fails the build: critical | high | medium | low"
     required: false
     default: "high"
+  exclude:
+    description: >-
+      Comma-separated paths to exclude from the scan. A plain name (e.g.
+      "tests") excludes that whole subtree by directory/file name; a glob
+      (e.g. "dist/*") is matched against the relative path.
+    required: false
+    default: ""
 
 runs:
   using: "docker"
@@ -27,6 +34,7 @@ runs:
   env:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
+    INPUT_EXCLUDE: ${{ inputs.exclude }}
 
 branding:
   icon: "shield"

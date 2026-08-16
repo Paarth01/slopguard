@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from slopguard.input_parser import parse_exclude_arg
 from slopguard.models import Severity
 from slopguard.report import write_reports
 from slopguard.scanner import run_scan
@@ -49,11 +50,23 @@ def main(argv: list[str] | None = None) -> int:
         "--intent", default="", help="Stated intent/PR description for the judge layer"
     )
     scan_p.add_argument("--judge", action="store_true", help="Enable the intent/judge layer")
+    scan_p.add_argument(
+        "--exclude",
+        default="",
+        help=(
+            "Comma-separated paths to exclude. A plain name (e.g. 'tests') "
+            "excludes that whole subtree; a glob (e.g. 'dist/*') is matched "
+            "against the relative path."
+        ),
+    )
 
     args = parser.parse_args(argv)
 
     if args.command == "scan":
-        result = run_scan(args.path, stated_intent=args.intent, run_judge=args.judge)
+        exclude = parse_exclude_arg(args.exclude)
+        result = run_scan(
+            args.path, stated_intent=args.intent, run_judge=args.judge, exclude=exclude
+        )
         _print_table(result)
 
         if args.report:
