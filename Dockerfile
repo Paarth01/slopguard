@@ -15,4 +15,4 @@ EXPOSE 8000
 # Uses shell form so $PORT expands -- Render (and most PaaS providers) set
 # PORT at runtime and expect the app to bind to it; falls back to 8000 for
 # local `docker compose up`.
-CMD uvicorn slopguard.api:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["sh", "-c", "uvicorn slopguard.api:app --host 0.0.0.0 --port ${PORT:-8000}"]
