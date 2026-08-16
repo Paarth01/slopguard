@@ -18,7 +18,8 @@ inputs:
 
 runs:
   using: "docker"
-  image: "action/Dockerfile"
+  image: 'docker://Dockerfile'
+  # or if using a local path
   env:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
