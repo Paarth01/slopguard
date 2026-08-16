@@ -24,6 +24,7 @@ runs:
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
     INPUT_EXCLUDE: ${{ inputs.exclude }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    GITHUB_TOKEN: ${{ github.token }}
 
 branding:
   icon: "shield"
