@@ -10,7 +10,9 @@ COPY README.md .
 
 RUN pip install --no-cache-dir -e .
 
-COPY action/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Uses shell form so $PORT expands -- Render (and most PaaS providers) set
+# PORT at runtime and expect the app to bind to it; falls back to 8000 for
+# local `docker compose up`.
+CMD uvicorn slopguard.api:app --host 0.0.0.0 --port ${PORT:-8000}

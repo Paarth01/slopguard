@@ -11,19 +11,22 @@ inputs:
     description: "Minimum severity that fails the build: critical | high | medium | low"
     required: false
     default: "high"
-  exclude:
-    description: "Comma-separated paths to exclude from scan"
-    required: false
-    default: ""
 
 runs:
   using: "docker"
-  image: './action/Dockerfile'
+  # Points at the root Dockerfile (already correct, already proven working
+  # for the Render deploy) rather than action/Dockerfile. A real build log
+  # confirmed GitHub uses the *Dockerfile's own directory* as the build
+  # context, not the directory action.yml lives in -- so a Dockerfile
+  # inside action/ can never COPY files that live at the repo root (fs,
+  # templates/, pyproject.toml, etc). Reusing the root Dockerfile avoids
+  # that entirely, since its build context is the repo root, where
+  # everything it needs already lives.
+  image: "Dockerfile"
+  entrypoint: "action/entrypoint.sh"
   env:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
-    INPUT_EXCLUDE: ${{ inputs.exclude }}
-    GITHUB_TOKEN: ${{ github.token }}
 
 branding:
   icon: "shield"
