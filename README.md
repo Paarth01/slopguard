@@ -4,11 +4,7 @@
 
 [![CI](https://github.com/<your-username>/slopguard/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/slopguard/actions/workflows/ci.yml)
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://slopguard-nhri.onrender.com/docs)
-<<<<<<< HEAD
 [![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen)](#testing)
-=======
-[![Tests](https://img.shields.io/badge/tests-63%20passing-brightgreen)](#testing)
->>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 SlopGuard catches the two failure modes that are unique to — or heavily
@@ -81,49 +77,28 @@ come out as one severity-ranked report (HTML for humans, JSON for CI).
 
 ```
                      ┌────────────────────┐
-<<<<<<< HEAD
    diff / folder ──▶ │   Input Parser      │  walks a folder into
-=======
-   diff / folder ──▶│   Input Parser      │  walks a folder into
->>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
                      └─────────┬──────────┘  scannable FileToScan objects
                                │
              ┌─────────────────┼─────────────────┐
              ▼                 ▼                 ▼
-<<<<<<< HEAD
    ┌───────────────┐  ┌────────────────┐ ┌───────────────────┐
    │ Static Scan    │  │ Dependency      │ │ Intent/Judge Layer │
    │ (AST + regex)  │  │ Hallucination   │ │ (local heuristic,  │
    │                │  │ Checker (PyPI/  │ │  no API key)       │
    │                │  │ npm, live)      │ │                    │
    └───────┬───────┘  └────────┬────────┘ └─────────┬──────────┘
-=======
-   ┌───────────────┐  ┌─────────────────┐ ┌────────────────────┐
-   │ Static Scan   │  │ Dependency      │ │ Intent/Judge Layer │
-   │ (AST + regex) │  │ Hallucination   │ │ (local heuristic,  │
-   │               │  │ Checker (PyPI/  │ │  no API key)       │
-   │               │  │ npm, live)      │ │                    │
-   └───────┬───────┘  └────────┬────────┘ └──────────┬─────────┘
->>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
            │                   │                     │
            └───────────────────┼─────────────────────┘
                                ▼
                      ┌────────────────────┐
-<<<<<<< HEAD
                      │  Aggregator/Scorer  │  dedupe + severity sort
-=======
-                     │  Aggregator/Scorer │  dedupe + severity sort
->>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
                      └─────────┬──────────┘
                                │
                      ┌─────────┴──────────┐
                      ▼                    ▼
              ┌───────────────┐   ┌────────────────┐
-<<<<<<< HEAD
              │  HTML Report   │   │  JSON output    │ ──▶ GitHub PR comment
-=======
-             │  HTML Report  │   │  JSON output   │ ──▶ GitHub PR comment
->>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
              └───────────────┘   └────────────────┘
 ```
 
@@ -245,10 +220,7 @@ jobs:
         with:
           path: .
           fail-on: high
-<<<<<<< HEAD
           exclude: "tests,dist/*"   # optional
-=======
->>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
         env:
           # action.yml's own runs.env can't reference the github context
           # (only 'inputs' is available there) -- the token is passed in
@@ -307,15 +279,9 @@ limitation: **[REAL_WORLD_TESTING.md](./REAL_WORLD_TESTING.md)**.
 ## Testing
 
 ```bash
-<<<<<<< HEAD
 pytest -m "not integration"   # fast, no network, 67 tests
 pytest -m integration          # hits real PyPI/npm APIs, 4 tests
 pytest                          # everything, 71 tests
-=======
-pytest -m "not integration"   # fast, no network, 59 tests
-pytest -m integration          # hits real PyPI/npm APIs, 4 tests
-pytest                          # everything, 63 tests
->>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
 ```
 
 CI runs both `ruff check` (with an explicitly pinned rule selection —
@@ -342,11 +308,7 @@ slopguard/
 │   ├── entrypoint.sh        # runs the scan, posts the PR comment
 │   └── post_comment.py      # PR comment formatting + GitHub API calls
 ├── templates/report.html   # Jinja2 HTML report template
-<<<<<<< HEAD
 ├── tests/                  # 71 tests, fixtures for every rule
-=======
-├── tests/                  # 63 tests, fixtures for every rule
->>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
 ├── rules/ai-patterns.yml   # historical Semgrep-style sketch (superseded)
 ├── action.yml               # Action metadata (reuses root Dockerfile)
 ├── Dockerfile               # serves both the API and the Action
