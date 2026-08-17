@@ -1,0 +1,20 @@
+name: SlopGuard Self-Check
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  slopguard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run SlopGuard self-check
+        uses: .
+        with:
+          path: .
+          fail-on: critical
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

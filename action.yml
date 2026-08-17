@@ -34,7 +34,10 @@ runs:
   env:
     INPUT_PATH: ${{ inputs.path }}
     INPUT_FAIL_ON: ${{ inputs.fail-on }}
+<<<<<<< HEAD
     INPUT_EXCLUDE: ${{ inputs.exclude }}
+=======
+>>>>>>> e78fd715a36bf0b947e3e09c3cdb5c7a774bfe84
 
 branding:
   icon: "shield"
