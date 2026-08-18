@@ -83,23 +83,23 @@ come out as one severity-ranked report (HTML for humans, JSON for CI).
                                │
              ┌─────────────────┼─────────────────┐
              ▼                 ▼                 ▼
-   ┌───────────────┐  ┌────────────────┐ ┌───────────────────┐
-   │ Static Scan    │  │ Dependency      │ │ Intent/Judge Layer │
-   │ (AST + regex)  │  │ Hallucination   │ │ (local heuristic,  │
-   │                │  │ Checker (PyPI/  │ │  no API key)       │
-   │                │  │ npm, live)      │ │                    │
-   └───────┬───────┘  └────────┬────────┘ └─────────┬──────────┘
+   ┌───────────────┐  ┌─────────────────┐ ┌────────────────────┐
+   │ Static Scan   │  │ Dependency      │ │ Intent/Judge Layer │
+   │ (AST + regex) │  │ Hallucination   │ │ (local heuristic,  │
+   │               │  │ Checker (PyPI/  │ │  no API key)       │
+   │               │  │ npm, live)      │ │                    │
+   └───────┬───────┘  └────────┬────────┘ └──────────┬─────────┘
            │                   │                     │
            └───────────────────┼─────────────────────┘
                                ▼
                      ┌────────────────────┐
-                     │  Aggregator/Scorer  │  dedupe + severity sort
+                     │  Aggregator/Scorer │  dedupe + severity sort
                      └─────────┬──────────┘
                                │
                      ┌─────────┴──────────┐
                      ▼                    ▼
              ┌───────────────┐   ┌────────────────┐
-             │  HTML Report   │   │  JSON output    │ ──▶ GitHub PR comment
+             │  HTML Report  │   │  JSON output   │ ──▶ GitHub PR comment
              └───────────────┘   └────────────────┘
 ```
 
