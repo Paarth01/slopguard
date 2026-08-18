@@ -78,7 +78,7 @@ come out as one severity-ranked report (HTML for humans, JSON for CI).
 
 ```
                      ┌────────────────────┐
-   diff / folder ──▶ │   Input Parser      │  walks a folder into
+   diff / folder ──▶│   Input Parser      │  walks a folder into
                      └─────────┬──────────┘  scannable FileToScan objects
                                │
              ┌─────────────────┼─────────────────┐
