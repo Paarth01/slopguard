@@ -37,6 +37,14 @@
            border-radius: 4px; margin-left: 0.4rem; }
   .empty { color: #57606a; padding: 2rem; text-align: center; border: 1px dashed var(--border);
            border-radius: 8px; }
+  .snippet { margin-top: 0.6rem; background: #f6f8fa; border: 1px solid var(--border);
+             border-radius: 6px; overflow: hidden; font-family: ui-monospace, "SF Mono",
+             Consolas, monospace; font-size: 0.8rem; }
+  .snippet-line { display: flex; }
+  .snippet-line.target { background: #ffebe9; }
+  .snippet-lineno { flex: 0 0 auto; padding: 0.15rem 0.7rem; color: #6e7781; text-align: right;
+                     user-select: none; border-right: 1px solid var(--border); min-width: 2.5rem; }
+  .snippet-code { padding: 0.15rem 0.9rem; white-space: pre; overflow-x: auto; flex: 1; }
   footer { margin-top: 2rem; font-size: 0.8rem; color: #8c959f; }
 </style>
 </head>
@@ -66,6 +74,16 @@
           {% if f.rule_id %} · rule: {{ f.rule_id }}{% endif %}
         </div>
         <div class="finding-explanation">{{ f.explanation }}</div>
+        {% if f.snippet %}
+          <div class="snippet">
+            {% for line in f.snippet %}
+              <div class="snippet-line{% if line.is_target %} target{% endif %}">
+                <div class="snippet-lineno">{{ line.line }}</div>
+                <div class="snippet-code">{{ line.text }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
     {% endfor %}
   {% else %}

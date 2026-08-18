@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SlopGuard — Security scanner for AI-generated code</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#6933c5",
+          "primary-container": "#8250df",
+          "on-primary": "#ffffff",
+          "on-primary-container": "#f9f0ff",
+          "secondary": "#565f69",
+          "tertiary-container": "#9d6100",
+          "error": "#ba1a1a",
+          "error-container": "#ffdad6",
+          "on-error-container": "#93000a",
+          "surface": "#fef7ff",
+          "surface-container-lowest": "#ffffff",
+          "surface-container-low": "#f9f1fd",
+          "surface-container": "#f3ebf8",
+          "on-surface": "#1d1a23",
+          "on-surface-variant": "#4a4454",
+          "outline": "#7b7485",
+          "outline-variant": "#ccc3d6",
+          "github-bg": "#f6f8fa",
+          "github-border": "#d0d7de",
+          "github-text": "#1f2328",
+          "github-text-muted": "#656d76",
+          "github-link": "#0969da",
+          "github-purple": "#8250df",
+          "sev-critical": "#ba1a1a",
+          "sev-high": "#9d6100",
+          "sev-medium": "#7c4b00",
+          "sev-low": "#565f69",
+          "sev-info": "#6e7781",
+        },
+        borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem", github: "6px" },
+        spacing: { gutter: "16px", sm: "8px", md: "16px", "container-max": "1280px", xl: "32px", xs: "4px", lg: "24px", base: "4px" },
+        fontFamily: {
+          h1: ["Inter"], h2: ["Inter"], h3: ["Inter"], display: ["Inter"],
+          "body-sm": ["Inter"], "body-md": ["Inter"], "body-lg": ["Inter"], "label-caps": ["Inter"],
+          "code-sm": ["JetBrains Mono"], "code-md": ["JetBrains Mono"],
+        },
+        fontSize: {
+          h1: ["24px", { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" }],
+          h2: ["20px", { lineHeight: "28px", fontWeight: "600" }],
+          h3: ["16px", { lineHeight: "24px", fontWeight: "600" }],
+          display: ["32px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "600" }],
+          "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "600" }],
+          "body-sm": ["12px", { lineHeight: "18px", fontWeight: "400" }],
+          "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+          "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+          "code-sm": ["12px", { lineHeight: "18px", fontWeight: "400" }],
+          "code-md": ["13px", { lineHeight: "20px", fontWeight: "400" }],
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { background-color: #ffffff; color: #1f2328; }
+  .input-focus { transition: border-color 0.2s, box-shadow 0.2s; }
+  .input-focus:focus { outline: none; border-color: #8250df; box-shadow: 0 0 0 2px rgba(130, 80, 223, 0.2); }
+  .btn-primary { transition: background-color 0.2s; }
+  .btn-primary:hover:not(:disabled) { background-color: #6933c5; }
+  .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+  .dropzone { transition: border-color 0.15s, background-color 0.15s; }
+  .dropzone.dragover { border-color: #8250df; background-color: #faf8ff; }
+  .tab-btn.active { border-bottom-color: #8250df; color: #1f2328; background: #ffffff; }
+  .tab-btn:not(.active) { border-bottom-color: transparent; color: #656d76; }
+  .panel { display: none; }
+  .panel.active { display: flex; }
+  .badge-critical { background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a; }
+  .badge-high { background-color: rgba(157, 97, 0, 0.1); color: #9d6100; }
+  .badge-medium { background-color: rgba(124, 75, 0, 0.1); color: #7c4b00; }
+  .badge-low { background-color: rgba(86, 95, 105, 0.1); color: #565f69; }
+  .badge-info { background-color: rgba(110, 119, 129, 0.1); color: #6e7781; }
+  .border-l-critical { border-left-color: #ba1a1a; }
+  .border-l-high { border-left-color: #9d6100; }
+  .border-l-medium { border-left-color: #7c4b00; }
+  .border-l-low { border-left-color: #565f69; }
+  .border-l-info { border-left-color: #6e7781; }
+  .snippet-target { color: #ba1a1a; background-color: rgba(255, 235, 233, 0.6); }
+  @keyframes indeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+  .progress-indeterminate { animation: indeterminate 1.3s ease-in-out infinite; }
+</style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-md bg-github-bg font-body-md text-body-md">
+
+<main class="w-full max-w-[800px] flex flex-col gap-lg mt-xl mb-auto">
+
+  <header class="text-center flex flex-col items-center gap-md">
+    <div class="flex items-center justify-center gap-sm">
+      <span class="material-symbols-outlined text-[40px] text-github-purple" style="font-variation-settings: 'FILL' 1;">security</span>
+      <h1 class="font-display text-display text-github-text">SlopGuard</h1>
+    </div>
+    <p class="font-body-lg text-body-lg text-github-text-muted max-w-2xl">
+      Security scanner for AI-generated code. Catches hallucinated dependencies via live PyPI/npm checks, plus 10 static vulnerability patterns.
+    </p>
+    <div class="flex gap-md font-body-sm text-body-sm text-github-link mt-sm">
+      <a class="hover:underline flex items-center gap-xs" href="https://github.com/Paarth01/slopguard" target="_blank">
+        <span class="material-symbols-outlined text-[16px]">code</span>Source on GitHub
+      </a>
+      <a class="hover:underline flex items-center gap-xs" href="/docs" target="_blank">
+        <span class="material-symbols-outlined text-[16px]">menu_book</span>API docs
+      </a>
+    </div>
+  </header>
+
+  <div class="bg-surface border border-github-border rounded-github shadow-sm overflow-hidden">
+    <div class="flex border-b border-github-border bg-github-bg px-md pt-sm">
+      <button class="tab-btn active px-md py-sm border-b-2 font-h3 text-h3 flex items-center gap-sm rounded-t-github border border-b-0 border-github-border -mb-px" data-tab="repo">
+        <span class="material-symbols-outlined text-[18px]">hub</span>Scan a GitHub repo
+      </button>
+      <button class="tab-btn px-md py-sm border-b-2 font-h3 text-h3 flex items-center gap-sm transition-colors" data-tab="upload">
+        <span class="material-symbols-outlined text-[18px]">folder_zip</span>Upload a zip
+      </button>
+    </div>
+
+    <div class="panel active flex-col gap-md p-lg" id="panel-repo">
+      <div class="flex flex-col gap-xs">
+        <label class="font-h3 text-h3 text-github-text" for="repo-url">GitHub Repository URL</label>
+        <input class="w-full h-10 px-md border border-github-border rounded-github input-focus text-github-text placeholder-github-text-muted bg-surface" id="repo-url" placeholder="https://github.com/owner/repo" type="url">
+      </div>
+      <div class="flex flex-col gap-xs">
+        <label class="font-h3 text-h3 text-github-text" for="exclude-repo">Exclude paths <span class="font-body-sm text-body-sm text-github-text-muted font-normal">(optional)</span></label>
+        <input class="w-full h-10 px-md border border-github-border rounded-github input-focus text-github-text placeholder-github-text-muted bg-surface" id="exclude-repo" placeholder="tests,dist/*" type="text">
+        <p class="font-body-sm text-body-sm text-github-text-muted mt-xs">Comma-separated list of directories or glob patterns to ignore.</p>
+      </div>
+      <button class="btn-primary w-full h-10 mt-sm bg-github-purple text-on-primary font-h3 text-h3 rounded-github flex items-center justify-center gap-sm shadow-sm" id="scanRepoBtn">
+        <span class="material-symbols-outlined text-[18px]">search</span>Scan repo
+      </button>
+      <p class="font-body-sm text-body-sm mt-1" id="repoStatus"></p>
+    </div>
+
+    <div class="panel flex-col gap-md p-lg" id="panel-upload">
+      <div class="dropzone border-2 border-dashed border-github-border rounded-github p-xl text-center cursor-pointer" id="dropzone">
+        <span class="material-symbols-outlined text-[32px] text-github-purple">upload_file</span>
+        <p class="font-body-md text-body-md text-github-text-muted mt-xs">Drop a .zip here or click to choose a file</p>
+        <p class="font-body-sm text-body-sm text-github-purple font-medium mt-1" id="fileName"></p>
+        <input type="file" id="fileInput" accept=".zip" class="hidden">
+      </div>
+      <div class="flex flex-col gap-xs">
+        <label class="font-h3 text-h3 text-github-text" for="exclude-upload">Exclude paths <span class="font-body-sm text-body-sm text-github-text-muted font-normal">(optional)</span></label>
+        <input class="w-full h-10 px-md border border-github-border rounded-github input-focus text-github-text placeholder-github-text-muted bg-surface" id="exclude-upload" placeholder="tests,dist/*" type="text">
+      </div>
+      <button class="btn-primary w-full h-10 mt-sm bg-github-purple text-on-primary font-h3 text-h3 rounded-github flex items-center justify-center gap-sm shadow-sm" id="scanUploadBtn" disabled>
+        <span class="material-symbols-outlined text-[18px]">search</span>Scan zip
+      </button>
+      <p class="font-body-sm text-body-sm mt-1" id="uploadStatus"></p>
+    </div>
+  </div>
+
+  <!-- Scanning state -->
+  <div class="hidden bg-surface border border-github-border rounded-github shadow-sm p-xl flex flex-col items-center text-center gap-md" id="scanningCard">
+    <div class="w-16 h-16 rounded-full bg-surface-container-low border border-outline-variant flex items-center justify-center">
+      <span class="material-symbols-outlined text-[32px] text-github-purple animate-pulse">travel_explore</span>
+    </div>
+    <h2 class="font-h2 text-h2 text-github-text">Scanning</h2>
+    <p class="font-body-md text-body-md text-github-text-muted" id="scanningSubtitle">Fetching and scanning — this can take a few seconds for larger repos...</p>
+    <div class="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+      <div class="h-full w-1/3 bg-github-purple rounded-full progress-indeterminate"></div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="hidden flex-col gap-md" id="results">
+    <div class="border-b border-github-border pb-md">
+      <h1 class="font-h1 text-h1 text-github-text mb-xs">Scan Results</h1>
+      <p class="font-body-md text-body-md text-github-text-muted mb-md" id="resultsSubtitle"></p>
+      <div class="flex flex-wrap gap-sm" id="resultsPills"></div>
+    </div>
+    <div class="flex flex-col gap-md" id="findingsList"></div>
+  </div>
+
+  <footer class="w-full py-xl mt-xl border-t border-github-border text-center">
+    <p class="font-body-sm text-body-sm text-github-text-muted">
+      Deployed on Render · validated against Flask, requests, and express.js —
+      <a class="text-github-link hover:underline" href="https://github.com/Paarth01/slopguard/blob/main/REAL_WORLD_TESTING.md" target="_blank">real-world testing notes</a>
+    </p>
+  </footer>
+</main>
+
+<script>
+const SEVERITY_ORDER = ["critical", "high", "medium", "low", "info"];
+const SEVERITY_ICON = { critical: "error", high: "warning", medium: "warning", low: "info", info: "info" };
+const SEVERITY_LABEL = { critical: "Critical", high: "High", medium: "Medium", low: "Low", info: "Info" };
+
+document.querySelectorAll(".tab-btn").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("panel-" + tab.dataset.tab).classList.add("active");
+  });
+});
+
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+const fileNameEl = document.getElementById("fileName");
+const scanUploadBtn = document.getElementById("scanUploadBtn");
+let selectedFile = null;
+
+dropzone.addEventListener("click", () => fileInput.click());
+dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("dragover"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
+dropzone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropzone.classList.remove("dragover");
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", () => { if (fileInput.files.length) setFile(fileInput.files[0]); });
+
+function setFile(file) {
+  selectedFile = file;
+  fileNameEl.textContent = file.name;
+  scanUploadBtn.disabled = false;
+}
+
+function setStatus(el, message, isError) {
+  el.textContent = message;
+  el.className = "font-body-sm text-body-sm mt-1 " + (isError ? "text-error" : "text-github-text-muted");
+}
+
+function showScanning(subtitle) {
+  document.getElementById("scanningSubtitle").textContent = subtitle;
+  document.getElementById("scanningCard").classList.remove("hidden");
+  document.getElementById("scanningCard").classList.add("flex");
+  document.getElementById("results").classList.add("hidden");
+}
+
+function hideScanning() {
+  document.getElementById("scanningCard").classList.add("hidden");
+  document.getElementById("scanningCard").classList.remove("flex");
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : str;
+  return div.innerHTML;
+}
+
+function renderSnippet(snippet) {
+  if (!snippet || !snippet.length) return "";
+  const rows = snippet.map(s => `
+    <div class="flex ${s.is_target ? "snippet-target" : "text-secondary"}">
+      <span class="w-8 text-right mr-sm select-none ${s.is_target ? "" : "text-outline"}">${s.line}</span>
+      <span class="whitespace-pre">${escapeHtml(s.text)}</span>
+    </div>`).join("");
+  return `<div class="mt-md bg-surface-container-lowest border border-outline-variant rounded p-sm font-code-md text-code-md overflow-x-auto">${rows}</div>`;
+}
+
+function renderResults(data) {
+  const resultsEl = document.getElementById("results");
+  resultsEl.classList.remove("hidden");
+  resultsEl.classList.add("flex");
+
+  if (data.error) {
+    document.getElementById("resultsSubtitle").textContent = "";
+    document.getElementById("resultsPills").innerHTML = "";
+    document.getElementById("findingsList").innerHTML =
+      `<div class="border-2 border-dashed border-error rounded-xl p-lg text-center text-error font-body-md text-body-md">${escapeHtml(data.error)}</div>`;
+    return;
+  }
+
+  const counts = {};
+  for (const f of data.findings || []) counts[f.severity] = (counts[f.severity] || 0) + 1;
+
+  document.getElementById("resultsSubtitle").textContent =
+    `${data.files_scanned} files scanned in ${data.target || ""}`;
+
+  document.getElementById("resultsPills").innerHTML = SEVERITY_ORDER
+    .filter(s => counts[s])
+    .map(s => `
+      <span class="badge-${s} px-sm py-xs rounded-full font-label-caps text-label-caps flex items-center gap-xs">
+        <span class="material-symbols-outlined text-[14px]">${SEVERITY_ICON[s]}</span>
+        ${counts[s]} ${SEVERITY_LABEL[s]}
+      </span>`).join("");
+
+  const listEl = document.getElementById("findingsList");
+  if (!data.findings || data.findings.length === 0) {
+    listEl.innerHTML = `
+      <div class="border-2 border-dashed border-outline-variant rounded-xl p-xl flex flex-col items-center justify-center text-center bg-surface-container-lowest">
+        <div class="w-16 h-16 bg-surface-container rounded-full flex items-center justify-center mb-md">
+          <span class="material-symbols-outlined text-[32px] text-primary" style="font-variation-settings: 'FILL' 1;">verified</span>
+        </div>
+        <h3 class="font-h2 text-h2 text-on-surface mb-xs">No findings</h3>
+        <p class="font-body-md text-body-md text-on-surface-variant max-w-md">Nothing to report for this scan.</p>
+      </div>`;
+    return;
+  }
+
+  const sorted = [...data.findings].sort(
+    (a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity)
+  );
+  listEl.innerHTML = sorted.map(f => {
+    const loc = f.line ? `${f.file}:${f.line}` : f.file;
+    return `
+      <div class="bg-surface border border-outline-variant rounded-lg border-l-4 border-l-${f.severity} shadow-sm hover:border-outline transition-colors p-md">
+        <div class="flex justify-between items-start mb-sm gap-sm">
+          <div class="flex items-center gap-sm flex-wrap">
+            <h3 class="font-h3 text-h3 text-on-surface">${escapeHtml(f.title)}</h3>
+            <span class="bg-tertiary-container/10 text-tertiary-container px-sm py-xs rounded font-label-caps text-label-caps border border-tertiary-container/20">${escapeHtml(f.source)}</span>
+          </div>
+        </div>
+        <div class="font-code-sm text-code-sm text-secondary bg-surface-container px-sm py-xs rounded mb-sm inline-block">
+          ${escapeHtml(loc)} | ${Math.round(f.confidence * 100)}% confidence${f.rule_id ? " | rule: " + escapeHtml(f.rule_id) : ""}
+        </div>
+        <p class="font-body-md text-body-md text-on-surface-variant">${escapeHtml(f.explanation)}</p>
+        ${renderSnippet(f.snippet)}
+      </div>`;
+  }).join("");
+}
+
+document.getElementById("scanRepoBtn").addEventListener("click", async () => {
+  const repoUrl = document.getElementById("repo-url").value.trim();
+  const exclude = document.getElementById("exclude-repo").value.trim();
+  const statusEl = document.getElementById("repoStatus");
+  const btn = document.getElementById("scanRepoBtn");
+
+  if (!repoUrl) { setStatus(statusEl, "Enter a GitHub repo URL first.", true); return; }
+
+  btn.disabled = true;
+  setStatus(statusEl, "", false);
+  showScanning(`Fetching ${repoUrl} and scanning — this can take a few seconds for larger repos...`);
+
+  try {
+    const resp = await fetch("/scan-repo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo_url: repoUrl, exclude: exclude }),
+    });
+    const data = await resp.json();
+    hideScanning();
+    if (!resp.ok) { setStatus(statusEl, data.error || "Scan failed.", true); }
+    renderResults(data);
+  } catch (err) {
+    hideScanning();
+    setStatus(statusEl, "Network error: " + err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById("scanUploadBtn").addEventListener("click", async () => {
+  const exclude = document.getElementById("exclude-upload").value.trim();
+  const statusEl = document.getElementById("uploadStatus");
+  const btn = document.getElementById("scanUploadBtn");
+
+  if (!selectedFile) { setStatus(statusEl, "Choose a zip file first.", true); return; }
+
+  btn.disabled = true;
+  setStatus(statusEl, "", false);
+  showScanning("Scanning your upload...");
+
+  const formData = new FormData();
+  formData.append("file", selectedFile);
+  formData.append("exclude", exclude);
+
+  try {
+    const resp = await fetch("/scan", { method: "POST", body: formData });
+    const data = await resp.json();
+    hideScanning();
+    if (!resp.ok) { setStatus(statusEl, data.error || "Scan failed.", true); }
+    renderResults(data);
+  } catch (err) {
+    hideScanning();
+    setStatus(statusEl, "Network error: " + err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

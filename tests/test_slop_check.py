@@ -144,6 +144,9 @@ def test_finding_for_nonexistent_package_is_high():
     assert finding is not None
     assert finding.severity.value == "high"
     assert finding.rule_id == "dependency-hallucination"
+    # No line number for a whole-file/whole-import finding -- correctly no snippet
+    assert finding.line is None
+    assert finding.snippet is None
 
 
 def test_finding_for_existing_established_package_is_none():

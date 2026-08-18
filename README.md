@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/<your-username>/slopguard/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/slopguard/actions/workflows/ci.yml)
 [![Live demo](https://img.shields.io/badge/demo-live-brightgreen)](https://slopguard-nhri.onrender.com/docs)
-[![Tests](https://img.shields.io/badge/tests-71%20passing-brightgreen)](#testing)
+[![Tests](https://img.shields.io/badge/tests-101%20passing-brightgreen)](#testing)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 SlopGuard catches the two failure modes that are unique to — or heavily
@@ -32,6 +32,7 @@ docs — upload a zip and see real findings)
 - [The 10 static rules](#the-10-static-rules)
 - [Quickstart](#quickstart)
 - [Using it as a GitHub Action](#using-it-as-a-github-action)
+- [Web UI](#web-ui)
 - [Using the API](#using-the-api)
 - [Real-world validation](#real-world-validation)
 - [Testing](#testing)
@@ -77,28 +78,28 @@ come out as one severity-ranked report (HTML for humans, JSON for CI).
 
 ```
                      ┌────────────────────┐
-   diff / folder ──▶│   Input Parser      │  walks a folder into
+   diff / folder ──▶ │   Input Parser      │  walks a folder into
                      └─────────┬──────────┘  scannable FileToScan objects
                                │
              ┌─────────────────┼─────────────────┐
              ▼                 ▼                 ▼
-   ┌───────────────┐  ┌────────────────┐ ┌────────────────────┐
-   │ Static Scan   │  │ Dependency     │ │ Intent/Judge Layer │
-   │ (AST + regex) │  │ Hallucination  │ │ (local heuristic,  │
-   │               │  │ Checker (PyPI/ │ │  no API key)       │
-   │               │  │ npm, live)     │ │                    │
-   └───────┬───────┘  └────────┬───────┘ └───────────┬────────┘
+   ┌───────────────┐  ┌────────────────┐ ┌───────────────────┐
+   │ Static Scan    │  │ Dependency      │ │ Intent/Judge Layer │
+   │ (AST + regex)  │  │ Hallucination   │ │ (local heuristic,  │
+   │                │  │ Checker (PyPI/  │ │  no API key)       │
+   │                │  │ npm, live)      │ │                    │
+   └───────┬───────┘  └────────┬────────┘ └─────────┬──────────┘
            │                   │                     │
            └───────────────────┼─────────────────────┘
                                ▼
                      ┌────────────────────┐
-                     │  Aggregator/Scorer │  dedupe + severity sort
+                     │  Aggregator/Scorer  │  dedupe + severity sort
                      └─────────┬──────────┘
                                │
                      ┌─────────┴──────────┐
                      ▼                    ▼
              ┌───────────────┐   ┌────────────────┐
-             │  HTML Report  │   │  JSON output   │ ──▶ GitHub PR comment
+             │  HTML Report   │   │  JSON output    │ ──▶ GitHub PR comment
              └───────────────┘   └────────────────┘
 ```
 
@@ -237,6 +238,22 @@ summary comment on the triggering pull request. Full example:
 Workflow permissions is set to "Read and write permissions" — otherwise
 the PR-comment step will fail even though the scan itself succeeds.
 
+## Web UI
+
+The live instance has a browser UI at https://slopguard-nhri.onrender.com/
+— paste a public GitHub repo URL or drag in a zip, see findings rendered
+live with source-line code snippets, no `curl` required.
+
+**Scanning a GitHub repo works entirely server-side**: paste a URL like
+`https://github.com/owner/repo` (optionally `.../tree/branch`), and the
+server fetches it directly from GitHub's codeload endpoint, extracts it,
+and scans it — nothing to download or zip yourself. Since this endpoint
+is public, repo URLs are parsed with a strict allowlist (only
+`github.com` URLs, only alphanumeric/`-`/`_`/`.` in the owner/repo/branch
+segments) before ever being used to build the actual outbound request —
+see [`slopguard/github_fetch.py`](./slopguard/github_fetch.py) for the
+full SSRF-safety reasoning.
+
 ## Using the API
 
 ```bash
@@ -246,6 +263,11 @@ curl https://slopguard-nhri.onrender.com/health
 # scan a zipped codebase
 zip -r code.zip your-project/
 curl -X POST https://slopguard-nhri.onrender.com/scan -F "file=@code.zip"
+
+# scan a public GitHub repo directly, server-side -- no zip needed
+curl -X POST https://slopguard-nhri.onrender.com/scan-repo \
+  -H "Content-Type: application/json" \
+  -d '{"repo_url": "https://github.com/owner/repo", "exclude": "tests,dist/*"}'
 ```
 
 Interactive docs (Swagger UI, generated automatically by FastAPI):
@@ -279,9 +301,9 @@ limitation: **[REAL_WORLD_TESTING.md](./REAL_WORLD_TESTING.md)**.
 ## Testing
 
 ```bash
-pytest -m "not integration"   # fast, no network, 67 tests
+pytest -m "not integration"   # fast, no network, 96 tests
 pytest -m integration          # hits real PyPI/npm APIs, 4 tests
-pytest                          # everything, 71 tests
+pytest                          # everything, 101 tests
 ```
 
 CI runs both `ruff check` (with an explicitly pinned rule selection —
@@ -308,7 +330,7 @@ slopguard/
 │   ├── entrypoint.sh        # runs the scan, posts the PR comment
 │   └── post_comment.py      # PR comment formatting + GitHub API calls
 ├── templates/report.html   # Jinja2 HTML report template
-├── tests/                  # 71 tests, fixtures for every rule
+├── tests/                  # 101 tests, fixtures for every rule
 ├── rules/ai-patterns.yml   # historical Semgrep-style sketch (superseded)
 ├── action.yml               # Action metadata (reuses root Dockerfile)
 ├── Dockerfile               # serves both the API and the Action

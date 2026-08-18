@@ -30,6 +30,14 @@ class Severity(str, Enum):
 SourceType = Literal["static", "slop_check", "judge"]
 
 
+class SnippetLine(BaseModel):
+    """One line of source context shown around a finding."""
+
+    line: int
+    text: str
+    is_target: bool = False
+
+
 class Finding(BaseModel):
     """A single scanner finding, regardless of which component produced it."""
 
@@ -44,6 +52,12 @@ class Finding(BaseModel):
     )
     confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     rule_id: str | None = None
+    snippet: list[SnippetLine] | None = Field(
+        default=None,
+        description="A few lines of source context around the finding, when a line "
+        "number is available. None if the finding has no specific line (e.g. a "
+        "dependency-hallucination finding, which applies to the whole file).",
+    )
 
     def dedup_key(self) -> str:
         # Findings on the same file+line with the same title are treated as duplicates

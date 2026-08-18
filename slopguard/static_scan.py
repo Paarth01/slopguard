@@ -17,6 +17,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from slopguard.code_context import extract_snippet
 from slopguard.models import Finding, Severity
 
 
@@ -445,10 +446,20 @@ def _scan_js(file: FileToScan) -> list[Finding]:
 def scan_file(file: FileToScan) -> list[Finding]:
     """Entry point: dispatch to the right rule set for the file's language."""
     if file.language == "python":
-        return _scan_python(file)
-    if file.language in ("javascript", "typescript"):
-        return _scan_js(file)
-    return []
+        findings = _scan_python(file)
+    elif file.language in ("javascript", "typescript"):
+        findings = _scan_js(file)
+    else:
+        findings = []
+
+    # Attach source-line context in one place rather than at every
+    # individual Finding() call site above -- lower risk of missing one,
+    # and keeps the rule functions focused on detection, not display.
+    for finding in findings:
+        if finding.line is not None:
+            finding.snippet = extract_snippet(file.content, finding.line)
+
+    return findings
 
 
 def scan_files(files: list[FileToScan]) -> list[Finding]:

@@ -15,6 +15,10 @@ def test_hardcoded_secret_detected():
     rule_ids = [f.rule_id for f in findings]
     assert "hardcoded-secret" in rule_ids
 
+    finding = next(f for f in findings if f.rule_id == "hardcoded-secret")
+    assert finding.snippet is not None
+    assert any(s.is_target and s.line == finding.line for s in finding.snippet)
+
 
 def test_eval_on_input_detected():
     findings = scan_file(_load("eval_example.py"))
