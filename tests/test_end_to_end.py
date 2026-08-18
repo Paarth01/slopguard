@@ -23,3 +23,15 @@ def test_report_renders_without_error():
     html = render_html(result)
     assert "SlopGuard scan report" in html
     assert "tests/fixtures" in html
+
+
+def test_run_scan_exclude_removes_findings_from_excluded_file():
+    with patch("slopguard.slop_check.check_pypi_package", return_value=(True, 3000)):
+        full_result = run_scan("tests/fixtures")
+        excluded_result = run_scan("tests/fixtures", exclude=["secret_example.py"])
+
+    full_files = {f.file for f in full_result.findings}
+    excluded_files = {f.file for f in excluded_result.findings}
+    assert any("secret_example.py" in f for f in full_files)
+    assert not any("secret_example.py" in f for f in excluded_files)
+    assert excluded_result.files_scanned == full_result.files_scanned - 1

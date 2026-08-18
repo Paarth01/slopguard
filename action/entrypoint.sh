@@ -10,10 +10,15 @@ set -u
 
 SCAN_PATH="${INPUT_PATH:-.}"
 FAIL_ON="${INPUT_FAIL_ON:-high}"
+EXCLUDE="${INPUT_EXCLUDE:-}"
 REPORT_DIR="/tmp/slopguard-report"
 
-echo "SlopGuard: scanning '$SCAN_PATH' (fail-on: $FAIL_ON)"
-python -m slopguard scan "$SCAN_PATH" --report "$REPORT_DIR" --fail-on "$FAIL_ON"
+echo "SlopGuard: scanning '$SCAN_PATH' (fail-on: $FAIL_ON, exclude: ${EXCLUDE:-none})"
+if [ -n "$EXCLUDE" ]; then
+    python -m slopguard scan "$SCAN_PATH" --report "$REPORT_DIR" --fail-on "$FAIL_ON" --exclude "$EXCLUDE"
+else
+    python -m slopguard scan "$SCAN_PATH" --report "$REPORT_DIR" --fail-on "$FAIL_ON"
+fi
 SCAN_EXIT=$?
 
 if [ -f "$REPORT_DIR/report.json" ]; then
